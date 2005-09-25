@@ -1,0 +1,473 @@
+NAME
+    Net::Flickr::RDF - a.k.a RDF::Describes::Flickr
+
+SYNOPSIS
+     use Net::Flickr::RDF;
+     use IO::AtomicFile;
+
+     my $fh  = IO::AtomicFile->open("/foo/bar.rdf","w");
+     my $rdf = Net::Flickr::RDF->new(\%args);
+
+     $rdf->describe_photo({photo_id => 123,
+                           secret   => 567,
+                           fh       => \*$fh});
+
+     $fh->close();
+
+DESCRIPTION
+    Describe Flickr photos as RDF.
+
+    This package inherits from *Net::Flickr::API*.
+
+OPTIONS
+    Options are passed to Net::Flickr::Backup using a Config::Simple object
+    or a valid Config::Simple config file. Options are grouped by "block".
+
+  flick
+    * api_key
+        String. *required*
+
+        A valid Flickr API key.
+
+    * api_secret
+        String. *required*
+
+        A valid Flickr Auth API secret key.
+
+    * auth_token
+        String. *required*
+
+        A valid Flickr Auth API token.
+
+PACKAGE METHODS
+  __PACKAGE__->new($cfg)
+    Where $cfg is either a valid *Config::Simple* object or the path to a
+    file that can be parsed by *Config::Simple*.
+
+    Returns a *Net::Flickr::RDF* object.
+
+OBJECT METHODS YOU SHOULD CARE ABOUT
+  $obj->describe_photo(\%args)
+    Valid arguments are :
+
+    * photo_id
+        Int. *required*
+
+    * secret
+        String.
+
+    * fh
+        File-handle.
+
+        Default is STDOUT.
+
+    Returns true or false.
+
+OBJECT METHODS YOU MAY CARE ABOUT
+  $obj->collect_photo_data($photo_id,$secret)
+    Returns a hash ref of the meta data associated with a photo.
+
+    If any errors are unencounter an error is recorded via the log method
+    and the method returns undef.
+
+  $pgk->collect_group_data($group_id)
+    Returns a hash ref of the meta data associated with a group.
+
+    If any errors are unencounter an error is recorded via the log method
+    and the method returns undef.
+
+  $pkg->collect_user_data($user_id)
+    Returns a hash ref of the meta data associated with a user.
+
+    If any errors are unencounter an error is recorded via the log method
+    and the method returns undef.
+
+  $obj->collect_photoset_data($photoset_id)
+    Returns a hash ref of the meta data associated with a photoset.
+
+    If any errors are unencounter an error is recorded via the log method
+    and the method returns undef.
+
+  $obj->collect_cc_data()
+    Returns a hash ref of the Creative Commons licenses used by Flickr.
+
+    If any errors are unencounter an error is recorded via the log method
+    and the method returns undef.
+
+  $obj->make_photo_triples(\%data)
+    Returns an array ref of array refs of the meta data associated with a
+    photo (*%data*).
+
+    If any errors are unencounter an error is recorded via the log method
+    and the method returns undef.
+
+  $obj->namespaces()
+    Returns a hash ref of the prefixes and namespaces used by
+    *Net::Flickr::RDF*
+
+    The default key/value pairs are :
+
+    a   http://www.w3.org/2000/10/annotation-ns
+
+    acl http://www.w3.org/2001/02/acls#
+
+    dc  http://purl.org/dc/elements/1.1/
+
+    dcterms
+        http://purl.org/dc/terms/
+
+    exif
+        http://nwalsh.com/rdf/exif#
+
+    exifi
+        http://nwalsh.com/rdf/exif-intrinsic#
+
+    flickr
+        x-urn:flickr:
+
+    foaf
+        http://xmlns.com/foaf/0.1/#
+
+    geo http://www.w3.org/2003/01/geo/wgs84_pos#
+
+    i   http://www.w3.org/2004/02/image-regions#
+
+    rdf http://www.w3.org/1999/02/22-rdf-syntax-ns#
+
+    rdfs
+        http://www.w3.org/2000/01/rdf-schema#
+
+    skos
+        http://www.w3.org/2004/02/skos/core#
+
+  $obj->namespace_prefix($uri)
+    Return the namespace prefix for *$uri*
+
+  $obj->uri_shortform($prefix,$name)
+    Returns a string in the form of *prefix*:*property*. The property is the
+    value of $name. The prefix passed may or may be the same as the prefix
+    returned depending on whether or not the user has defined or redefined
+    their own list of namespaces.
+
+    The prefix passed to the method is assumed to be one of prefixes in the
+    default list of namespaces.
+
+  $obj->api_call(\%args)
+    Valid args are :
+
+    * method
+        A string containing the name of the Flickr API method you are
+        calling.
+
+    * args
+        A hash ref containing the key value pairs you are passing to
+        *method*
+
+    If the method encounters any errors calling the API, receives an API
+    error or can not parse the response it will log an error event, via the
+    log method, and return undef.
+
+    Otherwise it will return a *XML::LibXML::Document* object (if
+    XML::LibXML is installed) or a *XML::XPath* object.
+
+  $obj->log()
+    Returns a *Log::Dispatch* object.
+
+VERSION
+    1.0
+
+DATE
+    $Date: 2005/09/25 22:41:39 $
+
+AUTHOR
+    Aaron Straup Cope <ascope@cpan.org>
+
+  CONFIG FILES
+    This is an example of a Config::Simple file used to collect RDF data
+    from Flickr
+
+     [flickr] 
+     api_key=asd6234kjhdmbzcxi6e323
+     api_secret=s00p3rs3k3t
+     auth_token=123-omgwtf4u
+
+  RDF
+    This is an example of an RDF dump for a photograph backed up from Flickr
+    :
+
+     <?xml version='1.0'?>    
+     <rdf:RDF
+      xmlns:dc="http://purl.org/dc/elements/1.1/"
+      xmlns:a="http://www.w3.org/2000/10/annotation-ns"
+      xmlns:acl="http://www.w3.org/2001/02/acls#"
+      xmlns:exif="http://nwalsh.com/rdf/exif#"
+      xmlns:skos="http://www.w3.org/2004/02/skos/core#"
+      xmlns:foaf="http://xmlns.com/foaf/0.1/"
+      xmlns:exifi="http://nwalsh.com/rdf/exif-intrinsic#"
+      xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+      xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#"
+      xmlns:computer="x-urn:freebsd:"
+      xmlns:i="http://www.w3.org/2004/02/image-regions#"
+      xmlns:flickr="x-urn:flickr:"
+      xmlns:dcterms="http://purl.org/dc/terms/">
+
+      <flickr:photo rdf:about="http://www.flickr.com/photos/35034348999@N01/30763528">
+        <exif:isoSpeedRatings>1250</exif:isoSpeedRatings>
+        <exif:apertureValue>336/100</exif:apertureValue>
+        <exif:pixelYDimension>960</exif:pixelYDimension>
+        <exif:focalLength>4.5 mm</exif:focalLength>
+        <acl:access>visbility</acl:access>
+        <exif:colorSpace>sRGB</exif:colorSpace>
+        <exif:dateTimeOriginal>2005:08:02 18:12:19</exif:dateTimeOriginal>
+        <dc:rights>All rights reserved.</dc:rights>
+        <exif:shutterSpeedValue>4321/1000</exif:shutterSpeedValue>
+        <dc:description></dc:description>
+        <exif:exposureTime>0.05 sec (263/5260)</exif:exposureTime>
+        <dc:created>2005-08-02T18:12:19-0700</dc:created>
+        <dc:dateSubmitted>2005-08-02T18:16:20-0700</dc:dateSubmitted>
+        <exif:gainControl>High gain up</exif:gainControl>
+        <exif:flash>32</exif:flash>
+        <exif:digitalZoomRatio>100/100</exif:digitalZoomRatio>
+        <exif:pixelXDimension>1280</exif:pixelXDimension>
+        <exif:dateTimeDigitized>2005:08:02 18:12:19</exif:dateTimeDigitized>
+        <dc:title>20050802(007).jpg</dc:title>
+        <exif:fNumber>f/3.2</exif:fNumber>
+        <acl:accessor>public</acl:accessor>
+        <dc:creator rdf:resource="http://www.flickr.com/people/35034348999@N01"/>
+        <dc:subject rdf:resource="http://www.flickr.com/people/tags/usa"/>
+        <dc:subject rdf:resource="http://www.flickr.com/people/tags/california"/>
+        <dc:subject rdf:resource="http://www.flickr.com/people/tags/sanfrancisco"/>
+        <dc:subject rdf:resource="http://www.flickr.com/people/tags/cameraphone"/>
+        <a:hasAnnotation rdf:resource="http://www.flickr.com/photos/35034348999@N01/30763528#note-1140939"/>
+        <a:hasAnnotation rdf:resource="http://www.flickr.com/photos/35034348999@N01/30763528#note-1140942"/>
+        <a:hasAnnotation rdf:resource="http://www.flickr.com/photos/35034348999@N01/30763528#note-1140945"/>
+        <a:hasAnnotation rdf:resource="http://www.flickr.com/photos/35034348999@N01/30763528#note-1140946"/>
+        <a:hasAnnotation rdf:resource="http://www.flickr.com/photos/35034348999@N01/30763528#note-1140952"/>
+        <a:hasAnnotation rdf:resource="http://www.flickr.com/photos/35034348999@N01/30763528#note-1142648"/>
+        <a:hasAnnotation rdf:resource="http://www.flickr.com/photos/35034348999@N01/30763528#note-1142656"/>
+        <a:hasAnnotation rdf:resource="http://www.flickr.com/photos/35034348999@N01/30763528#note-1143239"/>
+        <a:hasAnnotation rdf:resource="http://www.flickr.com/photos/35034348999@N01/30763528#note-1148950"/>
+      </flickr:photo>
+
+      <flickr:note rdf:about="http://www.flickr.com/photos/35034348999@N01/30763528#note-1140942">
+        <i:boundingBox>468 141 22 26</i:boundingBox>
+        <a:body>*sigh*</a:body>
+        <i:regionDepicts rdf:resource="http://static.flickr.com/23/30763528_a981fab285.jpg"/>
+        <a:author rdf:resource="http://www.flickr.com/people/44124415257@N01"/>
+        <a:annotates rdf:resource="http://www.flickr.com/photos/35034348999@N01/30763528"/>
+      </flickr:note>
+
+      <dcterms:StillImage rdf:about="http://static.flickr.com/23/30763528_a981fab285_s.jpg">
+        <dcterms:relation>Square</dcterms:relation>
+        <exifi:height>75</exifi:height>
+        <exifi:width>75</exifi:width>
+        <dcterms:isVersionOf rdf:resource="http://static.flickr.com/23/30763528_a981fab285_o.jpg"/>
+        <rdfs:seeAlso rdf:resource="http://www.flickr.com/photos/35034348999@N01/30763528"/>
+      </dcterms:StillImage>
+
+      <flickr:note rdf:about="http://www.flickr.com/photos/35034348999@N01/30763528#note-1142656">
+        <i:boundingBox>357 193 81 28</i:boundingBox>
+        <a:body>eww!</a:body>
+        <i:regionDepicts rdf:resource="http://static.flickr.com/23/30763528_a981fab285.jpg"/>
+        <a:author rdf:resource="http://www.flickr.com/people/32373682187@N01"/>
+        <a:annotates rdf:resource="http://www.flickr.com/photos/35034348999@N01/30763528"/>
+      </flickr:note>
+
+      <flickr:user rdf:about="http://www.flickr.com/people/44124415257@N01">
+        <foaf:mbox_sha1sum>4f6f211958d5217ef0d10f7f5cd9a69cd66f217e</foaf:mbox_sha1sum>
+        <foaf:name>Karl Dubost</foaf:name>
+        <foaf:nick>karlcow</foaf:nick>
+      </flickr:user>
+
+      <flickr:note rdf:about="http://www.flickr.com/photos/35034348999@N01/30763528#note-1140939">
+        <i:boundingBox>326 181 97 25</i:boundingBox>
+        <a:body>Did you see that this shirt makes me a beautiful breast?</a:body>
+        <i:regionDepicts rdf:resource="http://static.flickr.com/23/30763528_a981fab285.jpg"/>
+        <a:author rdf:resource="http://www.flickr.com/people/44124415257@N01"/>
+        <a:annotates rdf:resource="http://www.flickr.com/photos/35034348999@N01/30763528"/>
+      </flickr:note>
+
+      <flickr:tag rdf:about="http://www.flickr.com/people/tags/usa">
+        <skos:prefLabel>usa</skos:prefLabel>
+        <dc:creator rdf:resource="http://www.flickr.com/people/35034348999@N01"/>
+        <dcterms:isPartOf rdf:resource="http://flickr.com/photos/tags/usa"/>
+      </flickr:tag>
+
+      <flickr:note rdf:about="http://www.flickr.com/photos/35034348999@N01/30763528#note-1140952">
+        <i:boundingBox>9 205 145 55</i:boundingBox>
+        <a:body>Do you want my opinion? There's a love affair going on here… Anyway. Talking non sense. We all know Heather is committed to Flickr. She even only dresses at FlickrApparel. Did they say &amp;quot;No Logo&amp;quot;. Doh Dude.</a:body>
+        <i:regionDepicts rdf:resource="http://static.flickr.com/23/30763528_a981fab285.jpg"/>
+        <a:author rdf:resource="http://www.flickr.com/people/44124415257@N01"/>
+        <a:annotates rdf:resource="http://www.flickr.com/photos/35034348999@N01/30763528"/>
+      </flickr:note>
+
+      <dcterms:StillImage rdf:about="http://static.flickr.com/23/30763528_a981fab285_m.jpg">
+        <dcterms:relation>Small</dcterms:relation>
+        <exifi:height>180</exifi:height>
+        <exifi:width>240</exifi:width>
+        <dcterms:isVersionOf rdf:resource="http://static.flickr.com/23/30763528_a981fab285_o.jpg"/>
+        <rdfs:seeAlso rdf:resource="http://www.flickr.com/photos/35034348999@N01/30763528"/>
+      </dcterms:StillImage>
+
+      <flickr:tag rdf:about="http://www.flickr.com/people/tags/cameraphone">
+        <skos:prefLabel>cameraphone</skos:prefLabel>
+        <dc:creator rdf:resource="http://www.flickr.com/people/35034348999@N01"/>
+        <dcterms:isPartOf rdf:resource="http://flickr.com/photos/tags/cameraphone"/>
+      </flickr:tag>
+
+      <computer:user rdf:about="x-urn:dhclient#asc">
+        <foaf:name>Aaron Straup Cope</foaf:name>
+        <foaf:nick>asc</foaf:nick>
+      </computer:user>
+
+      <flickr:user rdf:about="http://www.flickr.com/people/34427469121@N01">
+        <foaf:mbox_sha1sum>216d56f03517c68e527c5b970552a181980c4389</foaf:mbox_sha1sum>
+        <foaf:name>George Oates</foaf:name>
+        <foaf:nick>George</foaf:nick>
+      </flickr:user>
+
+      <flickr:note rdf:about="http://www.flickr.com/photos/35034348999@N01/30763528#note-1140946">
+        <i:boundingBox>355 31 103 95</i:boundingBox>
+        <a:body>(Yes… I love you heather, you are my dream star)</a:body>
+        <i:regionDepicts rdf:resource="http://static.flickr.com/23/30763528_a981fab285.jpg"/>
+        <a:author rdf:resource="http://www.flickr.com/people/44124415257@N01"/>
+        <a:annotates rdf:resource="http://www.flickr.com/photos/35034348999@N01/30763528"/>
+      </flickr:note>
+
+      <rdf:Description rdf:about="x-urn:flickr:tag">
+        <rdfs:subClassOf rdf:resource="http://www.w3.org/2004/02/skos/core#Concept"/>
+      </rdf:Description>
+
+      <rdf:Description rdf:about="file:///home/asc/photos/2005/08/02/20050802-30763528-20050802_007.jpg">
+        <dcterms:created>2005-09-25T15:16:28Z</dcterms:created>
+        <dc:creator rdf:resource="x-urn:dhclient#asc"/>
+        <rdfs:seeAlso rdf:resource="http://www.flickr.com/photos/35034348999@N01/30763528"/>
+      </rdf:Description>
+
+      <rdf:Description rdf:about="file:///home/asc/photos/2005/08/02/20050802-30763528-20050802_007_m.jpg">
+        <dcterms:created>2005-09-25T15:16:28Z</dcterms:created>
+        <dc:creator rdf:resource="x-urn:dhclient#asc"/>
+        <rdfs:seeAlso rdf:resource="http://www.flickr.com/photos/35034348999@N01/30763528"/>
+      </rdf:Description>
+
+      <rdf:Description rdf:about="x-urn:freebsd:user">
+        <rdfs:subClassOf rdf:resource="http://xmlns.com/foaf/0.1/Person"/>
+      </rdf:Description>
+
+      <flickr:note rdf:about="http://www.flickr.com/photos/35034348999@N01/30763528#note-1143239">
+        <i:boundingBox>184 164 50 50</i:boundingBox>
+        <a:body>Baaaaarp!</a:body>
+        <i:regionDepicts rdf:resource="http://static.flickr.com/23/30763528_a981fab285.jpg"/>
+        <a:author rdf:resource="http://www.flickr.com/people/34427469121@N01"/>
+        <a:annotates rdf:resource="http://www.flickr.com/photos/35034348999@N01/30763528"/>
+      </flickr:note>
+
+      <rdf:Description rdf:about="file:///home/asc/photos/2005/08/02/20050802-30763528-20050802_007_s.jpg">
+        <dcterms:created>2005-09-25T15:16:28Z</dcterms:created>
+        <dc:creator rdf:resource="x-urn:dhclient#asc"/>
+        <rdfs:seeAlso rdf:resource="http://www.flickr.com/photos/35034348999@N01/30763528"/>
+      </rdf:Description>
+
+      <dcterms:StillImage rdf:about="http://static.flickr.com/23/30763528_a981fab285_t.jpg">
+        <dcterms:relation>Thumbnail</dcterms:relation>
+        <exifi:height>75</exifi:height>
+        <exifi:width>100</exifi:width>
+        <dcterms:isVersionOf rdf:resource="http://static.flickr.com/23/30763528_a981fab285_o.jpg"/>
+        <rdfs:seeAlso rdf:resource="http://www.flickr.com/photos/35034348999@N01/30763528"/>
+      </dcterms:StillImage>
+
+      <flickr:note rdf:about="http://www.flickr.com/photos/35034348999@N01/30763528#note-1140945">
+        <i:boundingBox>433 103 50 50</i:boundingBox>
+        <a:body>(fuck… fuck…)</a:body>
+        <i:regionDepicts rdf:resource="http://static.flickr.com/23/30763528_a981fab285.jpg"/>
+        <a:author rdf:resource="http://www.flickr.com/people/44124415257@N01"/>
+        <a:annotates rdf:resource="http://www.flickr.com/photos/35034348999@N01/30763528"/>
+      </flickr:note>
+
+      <flickr:user rdf:about="http://www.flickr.com/people/32373682187@N01">
+        <foaf:mbox_sha1sum>62bf10c8d5b56623226689b7be924c64dee5e94a</foaf:mbox_sha1sum>
+        <foaf:name>heather powazek champ</foaf:name>
+        <foaf:nick>heather</foaf:nick>
+      </flickr:user>
+
+      <rdf:Description rdf:about="x-urn:flickr:user">
+        <rdfs:subClassOf rdf:resource="http://xmlns.com/foaf/0.1/Person"/>
+      </rdf:Description>
+
+      <flickr:tag rdf:about="http://www.flickr.com/people/tags/california">
+        <skos:prefLabel>california</skos:prefLabel>
+        <dc:creator rdf:resource="http://www.flickr.com/people/35034348999@N01"/>
+        <dcterms:isPartOf rdf:resource="http://flickr.com/photos/tags/california"/>
+      </flickr:tag>
+
+      <dcterms:StillImage rdf:about="http://static.flickr.com/23/30763528_a981fab285.jpg">
+        <dcterms:relation>Medium</dcterms:relation>
+        <exifi:height>375</exifi:height>
+        <exifi:width>500</exifi:width>
+        <dcterms:isVersionOf rdf:resource="http://static.flickr.com/23/30763528_a981fab285_o.jpg"/>
+        <rdfs:seeAlso rdf:resource="http://www.flickr.com/photos/35034348999@N01/30763528"/>
+      </dcterms:StillImage>
+
+      <flickr:note rdf:about="http://www.flickr.com/photos/35034348999@N01/30763528#note-1142648">
+        <i:boundingBox>202 224 50 50</i:boundingBox>
+        <a:body>dude! who did this?</a:body>
+        <i:regionDepicts rdf:resource="http://static.flickr.com/23/30763528_a981fab285.jpg"/>
+        <a:author rdf:resource="http://www.flickr.com/people/32373682187@N01"/>
+        <a:annotates rdf:resource="http://www.flickr.com/photos/35034348999@N01/30763528"/>
+      </flickr:note>
+
+      <dcterms:StillImage rdf:about="http://static.flickr.com/23/30763528_a981fab285_o.jpg">
+        <dcterms:relation>Original</dcterms:relation>
+        <exifi:height>960</exifi:height>
+        <exifi:width>1280</exifi:width>
+        <rdfs:seeAlso rdf:resource="http://www.flickr.com/photos/35034348999@N01/30763528"/>
+      </dcterms:StillImage>
+
+      <flickr:user rdf:about="http://www.flickr.com/people/35034348999@N01">
+        <foaf:mbox_sha1sum>a4d1b5e38db5e2ed4f847f9f09fd51cf59bc0d3f</foaf:mbox_sha1sum>
+        <foaf:name>Aaron</foaf:name>
+        <foaf:nick>straup</foaf:nick>
+      </flickr:user>
+
+      <flickr:note rdf:about="http://www.flickr.com/photos/35034348999@N01/30763528#note-1148950">
+        <i:boundingBox>342 197 28 33</i:boundingBox>
+        <a:body>Is that just one big boob, or...?</a:body>
+        <i:regionDepicts rdf:resource="http://static.flickr.com/23/30763528_a981fab285.jpg"/>
+        <a:author rdf:resource="http://www.flickr.com/people/34427469121@N01"/>
+        <a:annotates rdf:resource="http://www.flickr.com/photos/35034348999@N01/30763528"/>
+      </flickr:note>
+
+      <rdf:Description rdf:about="x-urn:flickr:note">
+        <rdfs:subClassOf rdf:resource="http://www.w3.org/2000/10/annotation-nsAnnotation"/>
+      </rdf:Description>
+
+      <flickr:tag rdf:about="http://www.flickr.com/people/tags/sanfrancisco">
+        <skos:prefLabel>san francisco</skos:prefLabel>
+        <skos:altLabel>sanfrancisco</skos:altLabel>
+        <dc:creator rdf:resource="http://www.flickr.com/people/35034348999@N01"/>
+        <dcterms:isPartOf rdf:resource="http://flickr.com/photos/tags/sanfrancisco"/>
+      </flickr:tag>
+
+     </rdf:RDF>
+
+SEE ALSO
+    Net::Flickr::API
+
+    RDF::Simple
+
+TO DO
+    *   Methods for describing more than just a photo; groups, tags, etc.
+
+    *   Proper Creative Commons RDF blobs
+
+    *   Update bounding boxes to be relative to individual images
+
+BUGS
+    Please report all bugs via http://rt.cpan.org/
+
+LICENSE
+    Copyright (c) 2005 Aaron Straup Cope. All Rights Reserved.
+
+    This is free software. You may redistribute it and/or modify it under
+    the same terms as Perl itself.
+
