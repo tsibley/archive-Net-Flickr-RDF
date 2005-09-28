@@ -1,12 +1,12 @@
 use strict;
 
-# $Id: RDF.pm,v 1.20 2005/09/25 22:41:39 asc Exp $
+# $Id: RDF.pm,v 1.24 2005/09/28 13:57:30 asc Exp $
 # -*-perl-*-
 
 package Net::Flickr::RDF;
 use base qw (Net::Flickr::API);
 
-$Net::Flickr::RDF::VERSION = '1.0';
+$Net::Flickr::RDF::VERSION = '1.1';
 
 =head1 NAME
 
@@ -15,10 +15,13 @@ Net::Flickr::RDF - a.k.a RDF::Describes::Flickr
 =head1 SYNOPSIS
 
  use Net::Flickr::RDF;
+ use Config::Simple;
  use IO::AtomicFile;
 
+ my $cfg = Config::Simple->new("/path/to/my.cfg");
+ my $rdf = Net::Flickr::RDF->new($cfg);
+
  my $fh  = IO::AtomicFile->open("/foo/bar.rdf","w");
- my $rdf = Net::Flickr::RDF->new(\%args);
 
  $rdf->describe_photo({photo_id => 123,
                        secret   => 567,
@@ -677,9 +680,9 @@ sub make_photo_triples {
 	    my $raw    = $parts->[1];
 	    my $author = $parts->[2];
 
-	    my $tag_uri    = $FLICKR_URL_PEOPLE."tags/$clean";
-	    my $author_uri = sprintf("%s%s",$FLICKR_URL_PEOPLE,$author);
-	    my $clean_uri  = sprintf("%s%s",$FLICKR_URL_TAGS,$clean);
+	    my $author_uri = $self->build_user_uri($author);
+	    my $tag_uri    = $self->build_user_tag_uri($parts);
+	    my $clean_uri  = $self->build_global_tag_uri($parts);
 
 	    #
 
@@ -693,7 +696,7 @@ sub make_photo_triples {
 	    }
 
 	    push @triples, [$tag_uri,$self->uri_shortform("dc","creator"),$author_uri];
-	    push @triples, [$tag_uri,$self->uri_shortform("dcterms","isPartOf"),"http://flickr.com/photos/tags/$clean"];
+	    push @triples, [$tag_uri,$self->uri_shortform("dcterms","isPartOf"),$FLICKR_URL_TAGS.$clean];
 	}
     }
 
@@ -887,8 +890,8 @@ the value of $name. The prefix passed may or may be the same as the prefix
 returned depending on whether or not the user has defined or redefined their
 own list of namespaces.
 
-The prefix passed to the method is assumed to be one of prefixes in the
-B<default> list of namespaces.
+Unless this package is subclassed the prefix passed to the method is assumed to
+be one of prefixes in the B<default> list of namespaces.
 
 =cut
 
@@ -897,8 +900,59 @@ sub uri_shortform {
     my $prefix = shift;
     my $name   = shift;
 
-    my $user_prefix = $self->namespace_prefix($DEFAULT_NS{$prefix});
+    my $uri = (ref($self) eq __PACKAGE__) ? $DEFAULT_NS{$prefix} : $self->namespaces()->{$prefix};
+
+    if (! $uri) {
+	$self->log()->error("unable to determine URI for prefix : '$prefix'");
+	return undef;
+    }
+
+    my $user_prefix = $self->namespace_prefix($uri);
     return join(":",$user_prefix,$name);
+}
+
+=head2 $obj->build_user_tag_uri(\@data)
+
+Returns a URL as a string.
+
+=cut
+
+sub build_user_tag_uri {
+    my $self = shift;
+    my $data = shift;
+
+    my $clean  = $data->[0];
+    my $raw    = $data->[1];
+    my $author = $data->[2];
+
+    return $FLICKR_URL_PHOTOS."$author/tags/$clean";
+}
+
+=head2 $obj->build_global_tag_uri(\@data)
+
+Returns a URL as a string.
+
+=cut
+
+sub build_global_tag_uri {
+    my $self = shift;
+    my $data = shift;
+
+    my $clean = $data->[0];
+    return $FLICKR_URL_TAGS.$clean;
+}
+
+=head2 $obj->build_user_uri($user_id)
+
+Returns a URL as a string.
+
+=cut
+
+sub build_user_uri {
+    my $self = shift;
+    my $user_id = shift;
+
+    return $FLICKR_URL_PEOPLE.$user_id;
 }
 
 sub make_group_triples {
@@ -977,15 +1031,17 @@ sub _describe {
 
 =head1 VERSION
 
-1.0
+1.1
 
 =head1 DATE
 
-$Date: 2005/09/25 22:41:39 $
+$Date: 2005/09/28 13:57:30 $
 
 =head1 AUTHOR
 
 Aaron Straup Cope E<lt>ascope@cpan.orgE<gt>
+
+=head1 EXAMPLES
 
 =head2 CONFIG FILES
 
@@ -1093,7 +1149,7 @@ This is an example of an RDF dump for a photograph backed up from Flickr :
     <a:annotates rdf:resource="http://www.flickr.com/photos/35034348999@N01/30763528"/>
   </flickr:note>
 
-  <flickr:tag rdf:about="http://www.flickr.com/people/tags/usa">
+  <flickr:tag rdf:about="http://www.flickr.com/photos/35034348999@N01/tags/usa">
     <skos:prefLabel>usa</skos:prefLabel>
     <dc:creator rdf:resource="http://www.flickr.com/people/35034348999@N01"/>
     <dcterms:isPartOf rdf:resource="http://flickr.com/photos/tags/usa"/>
@@ -1115,7 +1171,7 @@ This is an example of an RDF dump for a photograph backed up from Flickr :
     <rdfs:seeAlso rdf:resource="http://www.flickr.com/photos/35034348999@N01/30763528"/>
   </dcterms:StillImage>
 
-  <flickr:tag rdf:about="http://www.flickr.com/people/tags/cameraphone">
+  <flickr:tag rdf:about="http://www.flickr.com/photos/35034348999@N01/tags/cameraphone">
     <skos:prefLabel>cameraphone</skos:prefLabel>
     <dc:creator rdf:resource="http://www.flickr.com/people/35034348999@N01"/>
     <dcterms:isPartOf rdf:resource="http://flickr.com/photos/tags/cameraphone"/>
@@ -1200,7 +1256,7 @@ This is an example of an RDF dump for a photograph backed up from Flickr :
     <rdfs:subClassOf rdf:resource="http://xmlns.com/foaf/0.1/Person"/>
   </rdf:Description>
 
-  <flickr:tag rdf:about="http://www.flickr.com/people/tags/california">
+  <flickr:tag rdf:about="http://www.flickr.com/photos/35034348999@N01/tags/california">
     <skos:prefLabel>california</skos:prefLabel>
     <dc:creator rdf:resource="http://www.flickr.com/people/35034348999@N01"/>
     <dcterms:isPartOf rdf:resource="http://flickr.com/photos/tags/california"/>
@@ -1247,7 +1303,7 @@ This is an example of an RDF dump for a photograph backed up from Flickr :
     <rdfs:subClassOf rdf:resource="http://www.w3.org/2000/10/annotation-nsAnnotation"/>
   </rdf:Description>
 
-  <flickr:tag rdf:about="http://www.flickr.com/people/tags/sanfrancisco">
+  <flickr:tag rdf:about="http://www.flickr.com/photos/35034348999@N01/tags/sanfrancisco">
     <skos:prefLabel>san francisco</skos:prefLabel>
     <skos:altLabel>sanfrancisco</skos:altLabel>
     <dc:creator rdf:resource="http://www.flickr.com/people/35034348999@N01"/>
@@ -1278,7 +1334,13 @@ Proper Creative Commons RDF blobs
 
 Update bounding boxes to be relative to individual images
 
+=item *
+
+Proper tests
+
 =back
+
+Patches are welcome.
 
 =head1 BUGS
 

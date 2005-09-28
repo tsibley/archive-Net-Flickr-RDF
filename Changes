@@ -1,6 +1,19 @@
-# $Id: Changes,v 1.1 2005/09/23 01:33:01 asc Exp $
+# $Id: Changes,v 1.2 2005/09/28 13:50:07 asc Exp $
 
 Changes for the Net::Flickr::RDF Perl library
+
+1.1	Wed Sep 28 2005
+
+        - FIXED URI for (personal) tags
+
+        - FIXED POD
+
+        - FIXED Changes
+
+        - UPDATED uri_shortform to use 'namespaces' package method
+          when package has been subclassed
+
+        - ADDED build_user_uri; build_user_tag_uri; build_global_tag_uri
 
 1.0	Fri Sep 22 2005
 

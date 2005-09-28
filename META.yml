@@ -1,6 +1,6 @@
 ---
 name: Net-Flickr-RDF
-version: 1.0
+version: 1.1
 author:
   - Aaron Straup Cope E<lt>ascope@cpan.orgE<gt>
 abstract: a.k.a RDF::Describes::Flickr
@@ -17,5 +17,5 @@ build_requires:
 provides:
   Net::Flickr::RDF:
     file: lib/Net/Flickr/RDF.pm
-    version: 1.0
+    version: 1.1
 generated_by: Module::Build version 0.2611
