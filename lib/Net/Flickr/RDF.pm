@@ -1,12 +1,12 @@
 use strict;
 
-# $Id: RDF.pm,v 1.24 2005/09/28 13:57:30 asc Exp $
+# $Id: RDF.pm,v 1.29 2005/10/05 05:40:54 asc Exp $
 # -*-perl-*-
 
 package Net::Flickr::RDF;
 use base qw (Net::Flickr::API);
 
-$Net::Flickr::RDF::VERSION = '1.1';
+$Net::Flickr::RDF::VERSION = '1.2';
 
 =head1 NAME
 
@@ -40,7 +40,7 @@ This package inherits from I<Net::Flickr::API>.
 Options are passed to Net::Flickr::Backup using a Config::Simple object or
 a valid Config::Simple config file. Options are grouped by "block".
 
-=head2 flick
+=head2 flickr
 
 =over 4
 
@@ -79,6 +79,7 @@ use Readonly;
 Readonly::Hash my %DEFAULT_NS => (
 				  "a"       => "http://www.w3.org/2000/10/annotation-ns",
 				  "acl"     => "http://www.w3.org/2001/02/acls#",
+				  "cc"      => "http://web.resource.org/cc/",
 				  "dc"      => "http://purl.org/dc/elements/1.1/",
 				  "dcterms" => "http://purl.org/dc/terms/",
 				  "exif"    => "http://nwalsh.com/rdf/exif#",
@@ -218,11 +219,57 @@ Readonly::Hash my %RDFMAP => (
 			      # TIFF => {},
 			  );
 
+
+Readonly::Hash my %CC_PERMITS => ("by-nc" => {"permits"   => ["Reproduction",
+							      "Distribution",
+							      "DerivativeWorks"],
+					      "requires"  => ["Notice",
+							      "Attribution"],
+					      "prohibits" => ["CommercialUse"]},
+				  "by-nc-nd" => {"permits"   => ["Reproduction",
+								 "Distribution"],
+						 "requires"  => ["Notice",
+								 "Attribution"],
+						 "prohibits" => ["CommercialUse"]},
+				  "by-nc-sa" => {"permits"   => ["Reproduction",
+								 "Distribution",
+								 "DerivativeWorks"],
+						 "requires"  => ["Notice",
+								 "Attribution",
+								 "ShareAlike"],
+						 "prohibits" => ["CommercialUse"]},
+				  "by-nc" =>  {"permits"   => ["Reproduction",
+							       "Distribution",
+							       "DerivativeWorks"],
+					       "requires"  => ["Notice",
+							       "Attribution",
+							       "ShareAlike"],
+					       "prohibits" => ["CommercialUse"]},
+				  "by-nd" =>   {"permits"   => ["Reproduction",
+								"Distribution"],
+						"requires"  => ["Notice",
+								"Attribution",
+								"ShareAlike"]},
+				  "by-sa" =>   {"permits"   => ["Reproduction",
+								"Distribution",
+								"DerivativeWorks"],
+						"requires"  => ["Notice",
+								"Attribution",
+								"ShareAlike"]},
+				  "by" =>   {"permits"   => ["Reproduction",
+							     "Distribution",
+							     "DerivativeWorks"],
+					     "requires"  => ["Notice",
+							     "Attribution"]},
+				  );
+
 Readonly::Scalar my $FLICKR_URL        => "http://www.flickr.com/";
 Readonly::Scalar my $FLICKR_URL_PHOTOS => $FLICKR_URL . "photos/";
 Readonly::Scalar my $FLICKR_URL_PEOPLE => $FLICKR_URL . "people/";
 Readonly::Scalar my $FLICKR_URL_TAGS   => $FLICKR_URL . "tags/";
 Readonly::Scalar my $FLICKR_URL_GROUPS => $FLICKR_URL . "groups/";
+
+Readonly::Scalar my $LICENSE_ALLRIGHTS => "All rights reserved.";
 
 =head1 PACKAGE METHODS
 
@@ -470,7 +517,7 @@ sub collect_photo_data {
     return \%data;
 }
 
-=head2 $pgk->collect_group_data($group_id)
+=head2 $obj->collect_group_data($group_id)
 
 Returns a hash ref of the meta data associated with a group.
 
@@ -499,7 +546,7 @@ sub collect_group_data {
     return \%data;
 }
 
-=head2 $pkg->collect_user_data($user_id)
+=head2 $obj->collect_user_data($user_id)
 
 Returns a hash ref of the meta data associated with a user.
 
@@ -518,6 +565,9 @@ sub collect_user_data {
 				args   => {user_id=> $user_id}});
     
     if ($user) {
+
+	$data{user_id} = $user_id;
+
 	foreach my $prop ("username", "realname", "mbox_sha1sum") {
 	    $data{$prop} = $user->findvalue("/rsp/person/$prop");
 	}
@@ -567,8 +617,7 @@ method and the method returns undef.
 sub collect_cc_data {
     my $self = shift;
 
-    my %cc = (""  => "All rights reserved.",
-	      "0" => "All rights reserved.");
+    my %cc = ();
 
     my $licenses = $self->api_call({"method" => "flickr.photos.licenses.getInfo"});
     
@@ -587,9 +636,6 @@ sub collect_cc_data {
 
 Returns an array ref of array refs of the meta data associated with a
 photo (I<%data>).
-
-If any errors are unencounter an error is recorded via the B<log>
-method and the method returns undef.
 
 =cut
 
@@ -664,9 +710,15 @@ sub make_photo_triples {
     }
 
     # licensing
-    # FIX ME - use CC RDF blobs
 
-    push @triples, [$photo,$self->uri_shortform("dc","rights"),$data->{license}];
+    if ($data->{license}) {
+	push @triples, [$photo,$self->uri_shortform("cc","license"),$data->{license}];
+	push @triples, @{$self->make_cc_triples($data->{license})};
+    }
+
+    else {
+	push @triples, [$photo,$self->uri_shortform("dc","rights"),$LICENSE_ALLRIGHTS];
+    }
 
     # tags
 
@@ -723,14 +775,7 @@ sub make_photo_triples {
     # users (authors)
 
     foreach my $user (keys %{$data->{users}}) {
-
-	my $uri   = sprintf("%s%s",$FLICKR_URL_PEOPLE,$user);
-	my $parts = $data->{users}->{$user};
-	
-	push @triples, [$uri,$self->uri_shortform("foaf","nick"),$parts->{username}];
-	push @triples, [$uri,$self->uri_shortform("foaf","name"),$parts->{realname}];
-	push @triples, [$uri,$self->uri_shortform("foaf","mbox_sha1sum"),$parts->{mbox_sha1sum}];
-	push @triples, [$uri,$self->uri_shortform("rdf","type"),$self->uri_shortform("flickr","user")];
+	push @triples, @{$self->make_user_triples($data->{users}->{$user})};
     }
 
     # comments (can't do those yet)
@@ -793,6 +838,61 @@ sub make_photo_triples {
     return (wantarray) ? @triples : \@triples;
 }
 
+=head2 $obj->make_user_triples(\%user_data)
+
+Returns an array ref of array refs of the meta data associated with a
+user (I<%user_data>).
+
+=cut
+
+sub make_user_triples {
+    my $self      = shift;
+    my $user_data = shift;
+
+    my $uri = $self->build_user_uri($user_data->{user_id});
+
+    my @triples = ();
+    
+    push @triples, [$uri,$self->uri_shortform("foaf","nick"),$user_data->{username}];
+    push @triples, [$uri,$self->uri_shortform("foaf","name"),$user_data->{realname}];
+    push @triples, [$uri,$self->uri_shortform("foaf","mbox_sha1sum"),$user_data->{mbox_sha1sum}];
+    push @triples, [$uri,$self->uri_shortform("rdf","type"),$self->uri_shortform("flickr","user")];
+
+    return \@triples;
+}
+
+=head2 $obj->make_cc_triples($url)
+
+Returns an array ref of array refs of the meta data associated with a
+Creative Commons license (I<$url>).
+
+=cut
+
+sub make_cc_triples {
+    my $self    = shift;
+    my $license = shift;
+
+    my @triples = ();
+
+    $license =~ m!http://creativecommons.org/licenses/(.*)/\d\.\d/?$!;
+    my $key  = $1;
+
+    #
+
+    if (exists($CC_PERMITS{$key})) {
+
+	foreach my $type (keys %{$CC_PERMITS{$key}}) {
+	    foreach my $perm (@{$CC_PERMITS{$key}->{$type}}) {
+		push @triples, [$license, $self->uri_shortform("cc",$type),$DEFAULT_NS{cc}.$perm];
+	    }
+	}
+
+	push @triples, [$license, $self->uri_shortform("rdf","type"),$self->uri_shortform("cc","License")];
+    }
+
+    return \@triples;
+}
+
 =head2 $obj->namespaces()
 
 Returns a hash ref of the prefixes and namespaces used by I<Net::Flickr::RDF>
@@ -808,6 +908,10 @@ http://www.w3.org/2000/10/annotation-ns
 =item B<acl>
 
 http://www.w3.org/2001/02/acls#
+
+=item B<cc>
+
+http://web.resource.org/cc/
 
 =item B<dc>
 
@@ -963,10 +1067,6 @@ sub make_grouppool_triples {
 
 }
 
-sub make_user_triples {
-
-}
-
 sub make_photoset_triples {
 
 }
@@ -1031,11 +1131,11 @@ sub _describe {
 
 =head1 VERSION
 
-1.1
+1.2
 
 =head1 DATE
 
-$Date: 2005/09/28 13:57:30 $
+$Date: 2005/10/05 05:40:54 $
 
 =head1 AUTHOR
 
@@ -1062,6 +1162,7 @@ This is an example of an RDF dump for a photograph backed up from Flickr :
   xmlns:dc="http://purl.org/dc/elements/1.1/"
   xmlns:a="http://www.w3.org/2000/10/annotation-ns"
   xmlns:acl="http://www.w3.org/2001/02/acls#"
+  xmlns:cc="http://web.resource.org/cc/"
   xmlns:exif="http://nwalsh.com/rdf/exif#"
   xmlns:skos="http://www.w3.org/2004/02/skos/core#"
   xmlns:foaf="http://xmlns.com/foaf/0.1/"
@@ -1328,10 +1429,6 @@ Methods for describing more than just a photo; groups, tags, etc.
 
 =item *
 
-Proper Creative Commons RDF blobs
-
-=item *
-
 Update bounding boxes to be relative to individual images
 
 =item *
@@ -1356,4 +1453,3 @@ modify it under the same terms as Perl itself.
 =cut
 
 __END__
-

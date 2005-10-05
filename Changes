@@ -1,6 +1,18 @@
-# $Id: Changes,v 1.2 2005/09/28 13:50:07 asc Exp $
+# $Id: Changes,v 1.3 2005/10/05 05:18:11 asc Exp $
 
 Changes for the Net::Flickr::RDF Perl library
+
+1.2	Wed Oct 05 2005
+
+	- ADDED make_user_triples; make_cc_triples object methods
+
+	- ADDED proper CC RDF blobs. photos licensed under the CC now
+          reference a cc:License triple; photo with no license will
+          continue to use dc:license
+
+	- UPDATED collect_user_data to set a 'user_id' key
+
+	- UPDATED POD
 
 1.1	Wed Sep 28 2005
 

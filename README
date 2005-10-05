@@ -26,7 +26,7 @@ OPTIONS
     Options are passed to Net::Flickr::Backup using a Config::Simple object
     or a valid Config::Simple config file. Options are grouped by "block".
 
-  flick
+  flickr
     * api_key
         String. *required*
 
@@ -73,13 +73,13 @@ OBJECT METHODS YOU MAY CARE ABOUT
     If any errors are unencounter an error is recorded via the log method
     and the method returns undef.
 
-  $pgk->collect_group_data($group_id)
+  $obj->collect_group_data($group_id)
     Returns a hash ref of the meta data associated with a group.
 
     If any errors are unencounter an error is recorded via the log method
     and the method returns undef.
 
-  $pkg->collect_user_data($user_id)
+  $obj->collect_user_data($user_id)
     Returns a hash ref of the meta data associated with a user.
 
     If any errors are unencounter an error is recorded via the log method
@@ -101,8 +101,13 @@ OBJECT METHODS YOU MAY CARE ABOUT
     Returns an array ref of array refs of the meta data associated with a
     photo (*%data*).
 
-    If any errors are unencounter an error is recorded via the log method
-    and the method returns undef.
+  $obj->make_user_triples(\%user_data)
+    Returns an array ref of array refs of the meta data associated with a
+    user (*%user_data*).
+
+  $obj->make_cc_triples($url)
+    Returns an array ref of array refs of the meta data associated with a
+    Creative Commons license (*$url*).
 
   $obj->namespaces()
     Returns a hash ref of the prefixes and namespaces used by
@@ -113,6 +118,8 @@ OBJECT METHODS YOU MAY CARE ABOUT
     a   http://www.w3.org/2000/10/annotation-ns
 
     acl http://www.w3.org/2001/02/acls#
+
+    cc  http://web.resource.org/cc/
 
     dc  http://purl.org/dc/elements/1.1/
 
@@ -186,10 +193,10 @@ OBJECT METHODS YOU MAY CARE ABOUT
     Returns a *Log::Dispatch* object.
 
 VERSION
-    1.1
+    1.2
 
 DATE
-    $Date: 2005/09/28 13:57:30 $
+    $Date: 2005/10/05 05:40:54 $
 
 AUTHOR
     Aaron Straup Cope <ascope@cpan.org>
@@ -213,6 +220,7 @@ EXAMPLES
       xmlns:dc="http://purl.org/dc/elements/1.1/"
       xmlns:a="http://www.w3.org/2000/10/annotation-ns"
       xmlns:acl="http://www.w3.org/2001/02/acls#"
+      xmlns:cc="http://web.resource.org/cc/"
       xmlns:exif="http://nwalsh.com/rdf/exif#"
       xmlns:skos="http://www.w3.org/2004/02/skos/core#"
       xmlns:foaf="http://xmlns.com/foaf/0.1/"
@@ -470,8 +478,6 @@ SEE ALSO
 
 TO DO
     *   Methods for describing more than just a photo; groups, tags, etc.
-
-    *   Proper Creative Commons RDF blobs
 
     *   Update bounding boxes to be relative to individual images
 
