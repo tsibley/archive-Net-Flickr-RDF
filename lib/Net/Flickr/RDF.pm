@@ -1,12 +1,12 @@
 use strict;
 
-# $Id: RDF.pm,v 1.29 2005/10/05 05:40:54 asc Exp $
+# $Id: RDF.pm,v 1.36 2005/10/07 04:07:05 asc Exp $
 # -*-perl-*-
 
 package Net::Flickr::RDF;
 use base qw (Net::Flickr::API);
 
-$Net::Flickr::RDF::VERSION = '1.2';
+$Net::Flickr::RDF::VERSION = '1.3';
 
 =head1 NAME
 
@@ -73,6 +73,8 @@ use Date::Format;
 use Date::Parse;
 
 use RDF::Simple::Serialiser;
+
+use Digest::MD5 qw (md5_hex);
 
 use Readonly;
 
@@ -286,6 +288,122 @@ Returns a I<Net::Flickr::RDF> object.
 
 # Defined in Net::Flickr::API
 
+=head1 PACKAGE METHODS YOU MAY CARE ABOUT
+
+=cut
+
+=head2 __PACKAGE__->build_user_tag_uri(\@data)
+
+Returns a URL as a string.
+
+=cut
+
+sub build_user_tag_uri {
+    my $pkg  = shift;
+    my $data = shift;
+
+    my $clean  = $data->[0];
+    my $raw    = $data->[1];
+    my $author = $data->[2];
+
+    return $FLICKR_URL_PHOTOS."$author/tags/$clean";
+}
+
+=head2 __PACKAGE__->build_global_tag_uri(\@data)
+
+Returns a URL as a string.
+
+=cut
+
+sub build_global_tag_uri {
+    my $pkg  = shift;
+    my $data = shift;
+
+    my $clean = $data->[0];
+    return $FLICKR_URL_TAGS.$clean;
+}
+
+=head2 __PACKAGE__->build_user_uri($user_id)
+
+Returns a URL as a string.
+
+=cut
+
+sub build_user_uri {
+    my $pkg     = shift;
+    my $user_id = shift;
+
+    return $FLICKR_URL_PEOPLE.$user_id;
+}
+
+=head2 __PACKAGE__->build_group_uri($group_id)
+
+Returns a URL as a string.
+
+=cut
+
+sub build_group_uri {
+    my $self     = shift;
+    my $group_id = shift;
+
+    return $FLICKR_URL_GROUPS.$group_id;
+}
+
+=head2 __PACKAGE__->build_grouppool_uri($group_id)
+
+Returns a URL as a string.
+
+=cut
+
+sub build_grouppool_uri {
+    my $self     = shift;
+    my $group_id = shift;
+
+    return $self->build_group_uri($group_id)."/pool";
+}
+
+=head2 __PACKAGE__->build_photoset_uri(\%set_data)
+
+Returns a URL as a string.
+
+=cut
+
+sub build_photoset_uri {
+    my $pkg      = shift;
+    my $set_data = shift;
+
+    return sprintf("%s%s/sets/%s", $FLICKR_URL_PHOTOS,$set_data->{user_id},$set_data->{id});
+}
+
+=head2 __PACKAGE__->prune_triples(\@triples)
+
+Removes duplicate triples from I<@triples>. Returns an array
+reference.
+
+=cut
+
+sub prune_triples {
+    my $self    = shift;
+    my $triples = shift;
+
+    my %seen   = ();
+    my @pruned = ();
+
+    foreach my $spo (@$triples) {
+
+	my $key = md5_hex(join("",@$spo));
+
+	if (exists($seen{$key})) {
+	    next;
+	}
+
+	$seen{$key} = 1;
+	push @pruned, $spo;
+    }
+
+    return \@pruned;
+}
+
 =head1 OBJECT METHODS YOU SHOULD CARE ABOUT
 
 =cut
@@ -334,7 +452,7 @@ sub describe_photo {
       return 0;
   }
 
-  $self->_describe($triples,$fh);
+  $self->serialise_triples($triples,$fh);
   return 1;
 }
 
@@ -402,6 +520,7 @@ sub collect_photo_data {
 	
 	$data{files}->{$label} = {height => $sz->getAttribute("height"),
 				  width  => $sz->getAttribute("width"),
+				  label  => $label,
 				  uri    => $sz->getAttribute("source")};
     }
 
@@ -466,7 +585,6 @@ sub collect_photo_data {
 	$data{tags}->{$id} = [$clean,$raw,$author];
 	$data{tag_map}->{$clean}->{$raw} ++;
 	
-
 	$data{users}->{$author} = $self->collect_user_data($author);
     }
     
@@ -530,6 +648,10 @@ sub collect_group_data {
     my $self     = shift;
     my $group_id = shift;
 
+    if (exists($self->{'__groups'}->{$group_id})) {
+	return $self->{'__groups'}->{$group_id};
+    }
+
     my %data = ();
 
     my $group = $self->api_call({method => "flickr.groups.getInfo",
@@ -543,7 +665,8 @@ sub collect_group_data {
 	$data{id} = $group_id;
     }
 
-    return \%data;
+    $self->{'__groups'}->{$group_id} = \%data;
+    return $self->{'__groups'}->{$group_id};
 }
 
 =head2 $obj->collect_user_data($user_id)
@@ -559,6 +682,10 @@ sub collect_user_data {
     my $self    = shift;
     my $user_id = shift;
 
+    if (exists($self->{'__users'}->{$user_id})) {
+	return $self->{'__users'}->{$user_id};
+    }
+
     my %data = ();
 
     my $user = $self->api_call({method => "flickr.people.getInfo",
@@ -573,7 +700,8 @@ sub collect_user_data {
 	}
     }
 
-    return \%data;    
+    $self->{'__users'}->{$user_id} = \%data;
+    return $self->{'__users'}->{$user_id};
 }
 
 =head2 $obj->collect_photoset_data($photoset_id)
@@ -589,6 +717,10 @@ sub collect_photoset_data {
     my $self   = shift;
     my $set_id = shift;
 
+    if (exists($self->{'__sets'}->{$set_id})) {
+	return $self->{'__sets'}->{$set_id};
+    }
+
     my %data = ();
 
     my $set = $self->api_call({method => "flickr.photosets.getInfo",
@@ -599,10 +731,12 @@ sub collect_photoset_data {
 	    $data{$prop} = $set->findvalue("/rsp/photoset/$prop");
 	}
 
-	$data{id} = $set_id;
+	$data{user_id} = $set->findvalue("/rsp/photoset/\@owner");
+	$data{id}      = $set_id;
     }
 
-    return \%data;
+    $self->{'__sets'}->{$set_id} = \%data;
+    return $self->{'__sets'}->{$set_id};
 }
 
 =head2 $obj->collect_cc_data()
@@ -617,6 +751,10 @@ method and the method returns undef.
 sub collect_cc_data {
     my $self = shift;
 
+    if (exists($self->{'__cc'})) {
+	return $self->{'__cc'};
+    }
+
     my %cc = ();
 
     my $licenses = $self->api_call({"method" => "flickr.photos.licenses.getInfo"});
@@ -629,13 +767,14 @@ sub collect_cc_data {
 	$cc{ $l->getAttribute("id") } = $l->getAttribute("url");
     }
 
-    return \%cc;
+    $self->{'__cc'} = \%cc;
+    return $self->{'__cc'};
 }
 
 =head2 $obj->make_photo_triples(\%data)
 
-Returns an array ref of array refs of the meta data associated with a
-photo (I<%data>).
+Returns an array ref (or alist in a wantarray context) of array refs
+of the meta data associated with a photo (I<%data>).
 
 =cut
 
@@ -676,6 +815,8 @@ sub make_photo_triples {
 
     foreach my $label (keys %{$data->{files}}) {
 
+	# TO DO - make me a method
+
 	my $uri = $data->{files}->{$label}->{uri};
 
 	push @triples, [$uri,$self->uri_shortform("exifi","width"),$data->{files}->{$label}->{width}];
@@ -713,7 +854,7 @@ sub make_photo_triples {
 
     if ($data->{license}) {
 	push @triples, [$photo,$self->uri_shortform("cc","license"),$data->{license}];
-	push @triples, @{$self->make_cc_triples($data->{license})};
+	push @triples, ($self->make_cc_triples($data->{license}));
     }
 
     else {
@@ -726,29 +867,10 @@ sub make_photo_triples {
 
 	foreach my $id (keys %{$data->{tags}}) {
 
-	    my $parts  = $data->{tags}->{$id};
-
-	    my $clean  = $parts->[0];
-	    my $raw    = $parts->[1];
-	    my $author = $parts->[2];
-
-	    my $author_uri = $self->build_user_uri($author);
-	    my $tag_uri    = $self->build_user_tag_uri($parts);
-	    my $clean_uri  = $self->build_global_tag_uri($parts);
-
-	    #
-
+	    my $tag_uri = $self->build_user_tag_uri($data->{tags}->{$id});
 	    push @triples, [$photo,$self->uri_shortform("dc","subject"),$tag_uri];
 
-	    push @triples, [$tag_uri,$self->uri_shortform("rdf","type"),$self->uri_shortform("flickr","tag")];
-	    push @triples, [$tag_uri,$self->uri_shortform("skos","prefLabel"),$raw];
-
-	    if ($raw ne $clean) {
-		push @triples, [$tag_uri,$self->uri_shortform("skos","altLabel"),$clean];
-	    }
-
-	    push @triples, [$tag_uri,$self->uri_shortform("dc","creator"),$author_uri];
-	    push @triples, [$tag_uri,$self->uri_shortform("dcterms","isPartOf"),$FLICKR_URL_TAGS.$clean];
+	    push @triples, ($self->make_tag_triples($data->{tags}->{$id}));
 	}
     }
 
@@ -758,8 +880,10 @@ sub make_photo_triples {
 
 	foreach my $n (@{$data->{notes}}) {
 
+	    # TO DO : how to build/make note triples without $photo
+
 	    my $note       = "$photo#note-$n->{id}";
-	    my $author_uri = sprintf("%s%s",$FLICKR_URL_PEOPLE,$n->{author});
+	    my $author_uri = $self->build_user_uri($n->{author});
 
 	    push @triples, [$photo,$self->uri_shortform("a","hasAnnotation"),$note];
 
@@ -775,7 +899,7 @@ sub make_photo_triples {
     # users (authors)
 
     foreach my $user (keys %{$data->{users}}) {
-	push @triples, @{$self->make_user_triples($data->{users}->{$user})};
+	push @triples, ($self->make_user_triples($data->{users}->{$user}));
     }
 
     # comments (can't do those yet)
@@ -807,32 +931,21 @@ sub make_photo_triples {
 
     foreach my $set (@{$data->{sets}}) {
 
-        my $uri = sprintf("%s%s/sets/%s",
-                          $FLICKR_URL_PEOPLE,$data->{user_id},$set->{id});
+	my $set_uri = $self->build_photoset_uri($set);
+        push @triples, [$photo, $self->uri_shortform("dcterms","isPartOf"),$set_uri];
 
-        push @triples, [$photo, $self->uri_shortform("dcterms","isPartOf"),$uri];
-
-        push @triples, [$uri,$self->uri_shortform("dc","title"),$set->{title}];
-        push @triples, [$uri,$self->uri_shortform("dc","description"),$set->{description}];
-        push @triples, [$uri,$self->uri_shortform("dc","creator"),sprintf("%s%s",$FLICKR_URL_PEOPLE,$data->{user_id})];
-        push @triples, [$uri,$self->uri_shortform("rdf","type"),$self->uri_shortform("flickr","photoset")];
+	push @triples, ($self->make_photoset_triples($set));
     }
 
     # groups
 
     foreach my $group (@{$data->{groups}}) {
 
-	my $group_uri = $FLICKR_URL_GROUPS.$group->{id};
-        my $pool_uri  = "$group_uri/pool";
-
+        my $pool_uri  = $self->build_grouppool_uri($group->{id});
         push @triples, [$photo, $self->uri_shortform("dcterms","isPartOf"),$pool_uri];
 
-        push @triples, [$pool_uri, $self->uri_shortform("dcterms","isPartOf"),$group_uri];
-        push @triples, [$pool_uri, $self->uri_shortform("rdf","type"),$self->uri_shortform("flickr","grouppool")];
-
-        push @triples, [$group_uri,$self->uri_shortform("dc","title"),$group->{name}];
-        push @triples, [$group_uri,$self->uri_shortform("dc","description"),$group->{description}];
-        push @triples, [$group_uri,$self->uri_shortform("rdf","type"),$self->uri_shortform("flickr","group")];
+	push @triples, ($self->make_group_triples($group));
+	push @triples, ($self->make_grouppool_triples($group));
     }
 
     return (wantarray) ? @triples : \@triples;
@@ -840,8 +953,8 @@ sub make_photo_triples {
 
 =head2 $obj->make_user_triples(\%user_data)
 
-Returns an array ref of array refs of the meta data associated with a
-user (I<%user_data>).
+Returns an array ref (or list in a wantarray context) of array
+refs of the meta data associated with a user (I<%user_data>).
 
 =cut
 
@@ -858,13 +971,123 @@ sub make_user_triples {
     push @triples, [$uri,$self->uri_shortform("foaf","mbox_sha1sum"),$user_data->{mbox_sha1sum}];
     push @triples, [$uri,$self->uri_shortform("rdf","type"),$self->uri_shortform("flickr","user")];
 
-    return \@triples;
+    return (wantarray) ? @triples : \@triples;
+}
+
+=head2 $obj->make_tag_triples(\@tag_data)
+
+Returns an array ref (or list in a wantarray context) of array
+refs of the meta data associated with a tag (I<@tag_data>).
+
+=cut
+
+sub make_tag_triples {
+    my $self     = shift;
+    my $tag_data = shift;
+
+    my $clean  = $tag_data->[0];
+    my $raw    = $tag_data->[1];
+    my $author = $tag_data->[2];
+    
+    my $author_uri = $self->build_user_uri($author);
+    my $tag_uri    = $self->build_user_tag_uri($tag_data);
+    my $clean_uri  = $self->build_global_tag_uri($tag_data);
+
+    #
+
+    my @triples = ();
+
+    push @triples, [$tag_uri,$self->uri_shortform("rdf","type"),$self->uri_shortform("flickr","tag")];
+    push @triples, [$tag_uri,$self->uri_shortform("skos","prefLabel"),$raw];
+    
+    if ($raw ne $clean) {
+	push @triples, [$tag_uri,$self->uri_shortform("skos","altLabel"),$clean];
+    }
+    
+    push @triples, [$tag_uri,$self->uri_shortform("dc","creator"),$author_uri];
+    push @triples, [$tag_uri,$self->uri_shortform("dcterms","isPartOf"),$FLICKR_URL_TAGS.$clean];
+
+    #
+
+    push @triples, [$FLICKR_URL_TAGS.$clean,$self->uri_shortform("rdf","type"),$self->uri_shortform("flickr","tag")];
+    push @triples, [$FLICKR_URL_TAGS.$clean,$self->uri_shortform("skos","prefLabel"),$clean];
+
+    return (wantarray) ? @triples : \@triples;
+}
+
+=head2 $pkg->make_photoset_triples(\%set_data)
+
+Returns an array ref (or list in a wantarray context) of array
+refs of the meta data associated with a photoset (I<%set_data>).
+
+=cut
+
+sub make_photoset_triples {
+    my $self     = shift;
+    my $set_data = shift;
+
+    my @triples = ();
+
+    my $set_uri     = $self->build_photoset_uri($set_data);
+    my $creator_uri = $self->build_user_uri($set_data->{user_id});
+
+    push @triples, [$set_uri,$self->uri_shortform("dc","title"),$set_data->{title}];
+    push @triples, [$set_uri,$self->uri_shortform("dc","description"),$set_data->{description}];
+    push @triples, [$set_uri,$self->uri_shortform("dc","creator"),$creator_uri];
+    push @triples, [$set_uri,$self->uri_shortform("rdf","type"),$self->uri_shortform("flickr","photoset")];
+
+    return (wantarray) ? @triples : \@triples;
+}
+
+=head2 $obj->make_group_triples(\%group_data)
+
+Returns an array ref (or list in a wantarray context) of array
+refs of the meta data associated with a group (I<%group_data>).
+
+=cut
+
+sub make_group_triples {
+    my $self       = shift;
+    my $group_data = shift;
+
+    my @triples = ();
+
+    my $group_uri = $self->build_group_uri($group_data->{id});
+
+    push @triples, [$group_uri,$self->uri_shortform("dc","title"),$group_data->{name}];
+    push @triples, [$group_uri,$self->uri_shortform("dc","description"),$group_data->{description}];
+    push @triples, [$group_uri,$self->uri_shortform("rdf","type"),$self->uri_shortform("flickr","group")];
+
+    return (wantarray) ? @triples : \@triples;
+}
+
+=head2 $obj->make_grouppool_triples(\%group_data)
+
+Returns an array ref (or list in a wantarray context) of array
+refs of the meta data associated with a group pool (I<%group_data>).
+
+=cut
+
+sub make_grouppool_triples {
+    my $self       = shift;
+    my $group_data = shift;
+
+    my @triples = ();
+
+    my $group_uri = $self->build_group_uri($group_data->{id});
+    my $pool_uri  = $self->build_grouppool_uri($group_data->{id});
+
+    push @triples, [$pool_uri, $self->uri_shortform("dcterms","isPartOf"),$group_uri];
+    push @triples, [$pool_uri, $self->uri_shortform("rdf","type"),$self->uri_shortform("flickr","grouppool")];
+
+    return (wantarray) ? @triples : \@triples;
 }
 
 =head2 $obj->make_cc_triples($url)
 
-Returns an array ref of array refs of the meta data associated with a
-Creative Commons license (I<$url>).
+Returns an array ref (or list in a wantarray context) of array
+refs of the meta data associated with a Creative Commons license
+(I<$url>).
 
 =cut
 
@@ -890,7 +1113,7 @@ sub make_cc_triples {
 	push @triples, [$license, $self->uri_shortform("rdf","type"),$self->uri_shortform("cc","License")];
     }
 
-    return \@triples;
+    return (wantarray) ? @triples : \@triples;
 }
 
 =head2 $obj->namespaces()
@@ -1015,62 +1238,6 @@ sub uri_shortform {
     return join(":",$user_prefix,$name);
 }
 
-=head2 $obj->build_user_tag_uri(\@data)
-
-Returns a URL as a string.
-
-=cut
-
-sub build_user_tag_uri {
-    my $self = shift;
-    my $data = shift;
-
-    my $clean  = $data->[0];
-    my $raw    = $data->[1];
-    my $author = $data->[2];
-
-    return $FLICKR_URL_PHOTOS."$author/tags/$clean";
-}
-
-=head2 $obj->build_global_tag_uri(\@data)
-
-Returns a URL as a string.
-
-=cut
-
-sub build_global_tag_uri {
-    my $self = shift;
-    my $data = shift;
-
-    my $clean = $data->[0];
-    return $FLICKR_URL_TAGS.$clean;
-}
-
-=head2 $obj->build_user_uri($user_id)
-
-Returns a URL as a string.
-
-=cut
-
-sub build_user_uri {
-    my $self = shift;
-    my $user_id = shift;
-
-    return $FLICKR_URL_PEOPLE.$user_id;
-}
-
-sub make_group_triples {
-
-}
-
-sub make_grouppool_triples {
-
-}
-
-sub make_photoset_triples {
-
-}
-
 =head2 $obj->api_call(\%args)
 
 Valid args are :
@@ -1108,10 +1275,21 @@ Returns a I<Log::Dispatch> object.
 
 # Defined in Net::Flickr::API
 
-sub _describe {
+=head2 $obj->serialise_triples(\@triples,\*$fh)
+
+Print I<@triples> as RDF/XML to a filehandle (I<$fh>). If no filehandle
+is defined, prints to STDOUT.
+
+=cut
+
+sub serialise_triples {
     my $self    = shift;
     my $triples = shift;
     my $fh      = shift;
+
+    if (! $fh) {
+	$fh = \*STDOUT;
+    }
 
     binmode $fh, ':utf8';
     
@@ -1129,13 +1307,24 @@ sub _describe {
     return 1;
 }
 
+=head2 $obj->serialize_triples(\@triples,\*$fh)
+
+An alias for I<serialise_triples>
+
+=cut
+
+sub serialize_triples {
+    my $self = shift;
+    $self->serialise_triples(@_);
+}
+
 =head1 VERSION
 
-1.2
+1.3
 
 =head1 DATE
 
-$Date: 2005/10/05 05:40:54 $
+$Date: 2005/10/07 04:07:05 $
 
 =head1 AUTHOR
 
@@ -1159,20 +1348,19 @@ This is an example of an RDF dump for a photograph backed up from Flickr :
 
  <?xml version='1.0'?>    
  <rdf:RDF
-  xmlns:dc="http://purl.org/dc/elements/1.1/"
-  xmlns:a="http://www.w3.org/2000/10/annotation-ns"
-  xmlns:acl="http://www.w3.org/2001/02/acls#"
-  xmlns:cc="http://web.resource.org/cc/"
-  xmlns:exif="http://nwalsh.com/rdf/exif#"
-  xmlns:skos="http://www.w3.org/2004/02/skos/core#"
-  xmlns:foaf="http://xmlns.com/foaf/0.1/"
-  xmlns:exifi="http://nwalsh.com/rdf/exif-intrinsic#"
-  xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
-  xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#"
-  xmlns:computer="x-urn:freebsd:"
-  xmlns:i="http://www.w3.org/2004/02/image-regions#"
-  xmlns:flickr="x-urn:flickr:"
-  xmlns:dcterms="http://purl.org/dc/terms/">
+   xmlns:dc="http://purl.org/dc/elements/1.1/"
+   xmlns:a="http://www.w3.org/2000/10/annotation-ns"
+   xmlns:acl="http://www.w3.org/2001/02/acls#"
+   xmlns:exif="http://nwalsh.com/rdf/exif#"
+   xmlns:skos="http://www.w3.org/2004/02/skos/core#"
+   xmlns:foaf="http://xmlns.com/foaf/0.1/"
+   xmlns:exifi="http://nwalsh.com/rdf/exif-intrinsic#"
+   xmlns:cc="http://web.resource.org/cc/"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#"
+   xmlns:flickr="x-urn:flickr:"
+   xmlns:dcterms="http://purl.org/dc/terms/"
+   xmlns:i="http://www.w3.org/2004/02/image-regions#">
 
   <flickr:photo rdf:about="http://www.flickr.com/photos/35034348999@N01/30763528">
     <exif:isoSpeedRatings>1250</exif:isoSpeedRatings>
@@ -1182,7 +1370,6 @@ This is an example of an RDF dump for a photograph backed up from Flickr :
     <acl:access>visbility</acl:access>
     <exif:colorSpace>sRGB</exif:colorSpace>
     <exif:dateTimeOriginal>2005:08:02 18:12:19</exif:dateTimeOriginal>
-    <dc:rights>All rights reserved.</dc:rights>
     <exif:shutterSpeedValue>4321/1000</exif:shutterSpeedValue>
     <dc:description></dc:description>
     <exif:exposureTime>0.05 sec (263/5260)</exif:exposureTime>
@@ -1196,11 +1383,14 @@ This is an example of an RDF dump for a photograph backed up from Flickr :
     <dc:title>20050802(007).jpg</dc:title>
     <exif:fNumber>f/3.2</exif:fNumber>
     <acl:accessor>public</acl:accessor>
+    <cc:license rdf:resource="http://creativecommons.org/licenses/by-nd/2.0/"/>
     <dc:creator rdf:resource="http://www.flickr.com/people/35034348999@N01"/>
-    <dc:subject rdf:resource="http://www.flickr.com/people/tags/usa"/>
-    <dc:subject rdf:resource="http://www.flickr.com/people/tags/california"/>
-    <dc:subject rdf:resource="http://www.flickr.com/people/tags/sanfrancisco"/>
-    <dc:subject rdf:resource="http://www.flickr.com/people/tags/cameraphone"/>
+    <dc:subject rdf:resource="http://www.flickr.com/photos/35034348999@N01/tags/usa"/>
+    <dc:subject rdf:resource="http://www.flickr.com/photos/35034348999@N01/tags/california"/>
+    <dc:subject rdf:resource="http://www.flickr.com/photos/35034348999@N01/tags/sanfrancisco"/>
+    <dc:subject rdf:resource="http://www.flickr.com/photos/35034348999@N01/tags/cameraphone"/>
+    <dcterms:isPartOf rdf:resource="http://www.flickr.com/photos/35034348999@N01/sets/1082058"/>
+    <dcterms:isPartOf rdf:resource="http://www.flickr.com/groups/97155967@N00/pool"/>
     <a:hasAnnotation rdf:resource="http://www.flickr.com/photos/35034348999@N01/30763528#note-1140939"/>
     <a:hasAnnotation rdf:resource="http://www.flickr.com/photos/35034348999@N01/30763528#note-1140942"/>
     <a:hasAnnotation rdf:resource="http://www.flickr.com/photos/35034348999@N01/30763528#note-1140945"/>
@@ -1220,6 +1410,16 @@ This is an example of an RDF dump for a photograph backed up from Flickr :
     <a:annotates rdf:resource="http://www.flickr.com/photos/35034348999@N01/30763528"/>
   </flickr:note>
 
+  <flickr:tag rdf:about="http://www.flickr.com/photos/35034348999@N01/tags/usa">
+    <skos:prefLabel>usa</skos:prefLabel>
+    <dc:creator rdf:resource="http://www.flickr.com/people/35034348999@N01"/>
+    <dcterms:isPartOf rdf:resource="http://www.flickr.com/tags/usa"/>
+  </flickr:tag>
+
+  <flickr:tag rdf:about="http://www.flickr.com/photos/tags/usa">
+    <skos:prefLabel>usa</skos:prefLabel>
+  </flickr:tag>
+
   <dcterms:StillImage rdf:about="http://static.flickr.com/23/30763528_a981fab285_s.jpg">
     <dcterms:relation>Square</dcterms:relation>
     <exifi:height>75</exifi:height>
@@ -1227,6 +1427,16 @@ This is an example of an RDF dump for a photograph backed up from Flickr :
     <dcterms:isVersionOf rdf:resource="http://static.flickr.com/23/30763528_a981fab285_o.jpg"/>
     <rdfs:seeAlso rdf:resource="http://www.flickr.com/photos/35034348999@N01/30763528"/>
   </dcterms:StillImage>
+
+  <flickr:tag rdf:about="http://www.flickr.com/photos/35034348999@N01/tags/california">
+    <skos:prefLabel>california</skos:prefLabel>
+    <dc:creator rdf:resource="http://www.flickr.com/people/35034348999@N01"/>
+    <dcterms:isPartOf rdf:resource="http://www.flickr.com/tags/california"/>
+  </flickr:tag>
+
+  <flickr:tag rdf:about="http://www.flickr.com/photos/tags/california">
+    <skos:prefLabel>california</skos:prefLabel>
+  </flickr:tag>
 
   <flickr:note rdf:about="http://www.flickr.com/photos/35034348999@N01/30763528#note-1142656">
     <i:boundingBox>357 193 81 28</i:boundingBox>
@@ -1250,12 +1460,6 @@ This is an example of an RDF dump for a photograph backed up from Flickr :
     <a:annotates rdf:resource="http://www.flickr.com/photos/35034348999@N01/30763528"/>
   </flickr:note>
 
-  <flickr:tag rdf:about="http://www.flickr.com/photos/35034348999@N01/tags/usa">
-    <skos:prefLabel>usa</skos:prefLabel>
-    <dc:creator rdf:resource="http://www.flickr.com/people/35034348999@N01"/>
-    <dcterms:isPartOf rdf:resource="http://flickr.com/photos/tags/usa"/>
-  </flickr:tag>
-
   <flickr:note rdf:about="http://www.flickr.com/photos/35034348999@N01/30763528#note-1140952">
     <i:boundingBox>9 205 145 55</i:boundingBox>
     <a:body>Do you want my opinion? There's a love affair going on here… Anyway. Talking non sense. We all know Heather is committed to Flickr. She even only dresses at FlickrApparel. Did they say &amp;quot;No Logo&amp;quot;. Doh Dude.</a:body>
@@ -1272,16 +1476,11 @@ This is an example of an RDF dump for a photograph backed up from Flickr :
     <rdfs:seeAlso rdf:resource="http://www.flickr.com/photos/35034348999@N01/30763528"/>
   </dcterms:StillImage>
 
-  <flickr:tag rdf:about="http://www.flickr.com/photos/35034348999@N01/tags/cameraphone">
-    <skos:prefLabel>cameraphone</skos:prefLabel>
+  <flickr:photoset rdf:about="http://www.flickr.com/photos/35034348999@N01/sets/1082058">
+    <dc:description></dc:description>
+    <dc:title>Flickr</dc:title>
     <dc:creator rdf:resource="http://www.flickr.com/people/35034348999@N01"/>
-    <dcterms:isPartOf rdf:resource="http://flickr.com/photos/tags/cameraphone"/>
-  </flickr:tag>
-
-  <computer:user rdf:about="x-urn:dhclient#asc">
-    <foaf:name>Aaron Straup Cope</foaf:name>
-    <foaf:nick>asc</foaf:nick>
-  </computer:user>
+  </flickr:photoset>
 
   <flickr:user rdf:about="http://www.flickr.com/people/34427469121@N01">
     <foaf:mbox_sha1sum>216d56f03517c68e527c5b970552a181980c4389</foaf:mbox_sha1sum>
@@ -1301,22 +1500,6 @@ This is an example of an RDF dump for a photograph backed up from Flickr :
     <rdfs:subClassOf rdf:resource="http://www.w3.org/2004/02/skos/core#Concept"/>
   </rdf:Description>
 
-  <rdf:Description rdf:about="file:///home/asc/photos/2005/08/02/20050802-30763528-20050802_007.jpg">
-    <dcterms:created>2005-09-25T15:16:28Z</dcterms:created>
-    <dc:creator rdf:resource="x-urn:dhclient#asc"/>
-    <rdfs:seeAlso rdf:resource="http://www.flickr.com/photos/35034348999@N01/30763528"/>
-  </rdf:Description>
-
-  <rdf:Description rdf:about="file:///home/asc/photos/2005/08/02/20050802-30763528-20050802_007_m.jpg">
-    <dcterms:created>2005-09-25T15:16:28Z</dcterms:created>
-    <dc:creator rdf:resource="x-urn:dhclient#asc"/>
-    <rdfs:seeAlso rdf:resource="http://www.flickr.com/photos/35034348999@N01/30763528"/>
-  </rdf:Description>
-
-  <rdf:Description rdf:about="x-urn:freebsd:user">
-    <rdfs:subClassOf rdf:resource="http://xmlns.com/foaf/0.1/Person"/>
-  </rdf:Description>
-
   <flickr:note rdf:about="http://www.flickr.com/photos/35034348999@N01/30763528#note-1143239">
     <i:boundingBox>184 164 50 50</i:boundingBox>
     <a:body>Baaaaarp!</a:body>
@@ -1324,12 +1507,6 @@ This is an example of an RDF dump for a photograph backed up from Flickr :
     <a:author rdf:resource="http://www.flickr.com/people/34427469121@N01"/>
     <a:annotates rdf:resource="http://www.flickr.com/photos/35034348999@N01/30763528"/>
   </flickr:note>
-
-  <rdf:Description rdf:about="file:///home/asc/photos/2005/08/02/20050802-30763528-20050802_007_s.jpg">
-    <dcterms:created>2005-09-25T15:16:28Z</dcterms:created>
-    <dc:creator rdf:resource="x-urn:dhclient#asc"/>
-    <rdfs:seeAlso rdf:resource="http://www.flickr.com/photos/35034348999@N01/30763528"/>
-  </rdf:Description>
 
   <dcterms:StillImage rdf:about="http://static.flickr.com/23/30763528_a981fab285_t.jpg">
     <dcterms:relation>Thumbnail</dcterms:relation>
@@ -1347,6 +1524,17 @@ This is an example of an RDF dump for a photograph backed up from Flickr :
     <a:annotates rdf:resource="http://www.flickr.com/photos/35034348999@N01/30763528"/>
   </flickr:note>
 
+  <flickr:tag rdf:about="http://www.flickr.com/photos/35034348999@N01/tags/sanfrancisco">
+    <skos:prefLabel>san francisco</skos:prefLabel>
+    <skos:altLabel>sanfrancisco</skos:altLabel>
+    <dc:creator rdf:resource="http://www.flickr.com/people/35034348999@N01"/>
+    <dcterms:isPartOf rdf:resource="http://www.flickr.com/tags/sanfrancisco"/>
+  </flickr:tag>
+
+  <flickr:tag rdf:about="http://www.flickr.com/photos/tags/sanfrancisco">
+    <skos:prefLabel>sanfrancisco</skos:prefLabel>
+  </flickr:tag>
+
   <flickr:user rdf:about="http://www.flickr.com/people/32373682187@N01">
     <foaf:mbox_sha1sum>62bf10c8d5b56623226689b7be924c64dee5e94a</foaf:mbox_sha1sum>
     <foaf:name>heather powazek champ</foaf:name>
@@ -1357,11 +1545,9 @@ This is an example of an RDF dump for a photograph backed up from Flickr :
     <rdfs:subClassOf rdf:resource="http://xmlns.com/foaf/0.1/Person"/>
   </rdf:Description>
 
-  <flickr:tag rdf:about="http://www.flickr.com/photos/35034348999@N01/tags/california">
-    <skos:prefLabel>california</skos:prefLabel>
-    <dc:creator rdf:resource="http://www.flickr.com/people/35034348999@N01"/>
-    <dcterms:isPartOf rdf:resource="http://flickr.com/photos/tags/california"/>
-  </flickr:tag>
+  <flickr:grouppool rdf:about="http://www.flickr.com/groups/97155967@N00/pool">
+    <dcterms:isPartOf rdf:resource="http://www.flickr.com/groups/97155967@N00"/>
+  </flickr:grouppool>
 
   <dcterms:StillImage rdf:about="http://static.flickr.com/23/30763528_a981fab285.jpg">
     <dcterms:relation>Medium</dcterms:relation>
@@ -1379,12 +1565,35 @@ This is an example of an RDF dump for a photograph backed up from Flickr :
     <a:annotates rdf:resource="http://www.flickr.com/photos/35034348999@N01/30763528"/>
   </flickr:note>
 
+  <flickr:group rdf:about="http://www.flickr.com/groups/97155967@N00">
+    <dc:description></dc:description>
+    <dc:title>aaronland</dc:title>
+  </flickr:group>
+
+  <cc:License rdf:about="http://creativecommons.org/licenses/by-nd/2.0/">
+    <cc:requires rdf:resource="http://web.resource.org/cc/Notice"/>
+    <cc:requires rdf:resource="http://web.resource.org/cc/Attribution"/>
+    <cc:requires rdf:resource="http://web.resource.org/cc/ShareAlike"/>
+    <cc:permits rdf:resource="http://web.resource.org/cc/Reproduction"/>
+    <cc:permits rdf:resource="http://web.resource.org/cc/Distribution"/>
+  </cc:License>
+
   <dcterms:StillImage rdf:about="http://static.flickr.com/23/30763528_a981fab285_o.jpg">
     <dcterms:relation>Original</dcterms:relation>
     <exifi:height>960</exifi:height>
     <exifi:width>1280</exifi:width>
     <rdfs:seeAlso rdf:resource="http://www.flickr.com/photos/35034348999@N01/30763528"/>
   </dcterms:StillImage>
+
+  <flickr:tag rdf:about="http://www.flickr.com/photos/35034348999@N01/tags/cameraphone">
+    <skos:prefLabel>cameraphone</skos:prefLabel>
+    <dc:creator rdf:resource="http://www.flickr.com/people/35034348999@N01"/>
+    <dcterms:isPartOf rdf:resource="http://www.flickr.com/tags/cameraphone"/>
+  </flickr:tag>
+
+  <flickr:tag rdf:about="http://www.flickr.com/photos/tags/cameraphone">
+    <skos:prefLabel>cameraphone</skos:prefLabel>
+  </flickr:tag>
 
   <flickr:user rdf:about="http://www.flickr.com/people/35034348999@N01">
     <foaf:mbox_sha1sum>a4d1b5e38db5e2ed4f847f9f09fd51cf59bc0d3f</foaf:mbox_sha1sum>
@@ -1403,13 +1612,6 @@ This is an example of an RDF dump for a photograph backed up from Flickr :
   <rdf:Description rdf:about="x-urn:flickr:note">
     <rdfs:subClassOf rdf:resource="http://www.w3.org/2000/10/annotation-nsAnnotation"/>
   </rdf:Description>
-
-  <flickr:tag rdf:about="http://www.flickr.com/photos/35034348999@N01/tags/sanfrancisco">
-    <skos:prefLabel>san francisco</skos:prefLabel>
-    <skos:altLabel>sanfrancisco</skos:altLabel>
-    <dc:creator rdf:resource="http://www.flickr.com/people/35034348999@N01"/>
-    <dcterms:isPartOf rdf:resource="http://flickr.com/photos/tags/sanfrancisco"/>
-  </flickr:tag>
 
  </rdf:RDF>
 
