@@ -1,12 +1,12 @@
 use strict;
 
-# $Id: RDF.pm,v 1.36 2005/10/07 04:07:05 asc Exp $
+# $Id: RDF.pm,v 1.37 2005/12/17 17:54:04 asc Exp $
 # -*-perl-*-
 
 package Net::Flickr::RDF;
 use base qw (Net::Flickr::API);
 
-$Net::Flickr::RDF::VERSION = '1.3';
+$Net::Flickr::RDF::VERSION = '1.4';
 
 =head1 NAME
 
@@ -73,8 +73,6 @@ use Date::Format;
 use Date::Parse;
 
 use RDF::Simple::Serialiser;
-
-use Digest::MD5 qw (md5_hex);
 
 use Readonly;
 
@@ -373,35 +371,6 @@ sub build_photoset_uri {
     my $set_data = shift;
 
     return sprintf("%s%s/sets/%s", $FLICKR_URL_PHOTOS,$set_data->{user_id},$set_data->{id});
-}
-
-=head2 __PACKAGE__->prune_triples(\@triples)
-
-Removes duplicate triples from I<@triples>. Returns an array
-reference.
-
-=cut
-
-sub prune_triples {
-    my $self    = shift;
-    my $triples = shift;
-
-    my %seen   = ();
-    my @pruned = ();
-
-    foreach my $spo (@$triples) {
-
-	my $key = md5_hex(join("",@$spo));
-
-	if (exists($seen{$key})) {
-	    next;
-	}
-
-	$seen{$key} = 1;
-	push @pruned, $spo;
-    }
-
-    return \@pruned;
 }
 
 =head1 OBJECT METHODS YOU SHOULD CARE ABOUT
@@ -1007,11 +976,6 @@ sub make_tag_triples {
     push @triples, [$tag_uri,$self->uri_shortform("dc","creator"),$author_uri];
     push @triples, [$tag_uri,$self->uri_shortform("dcterms","isPartOf"),$FLICKR_URL_TAGS.$clean];
 
-    #
-
-    push @triples, [$FLICKR_URL_TAGS.$clean,$self->uri_shortform("rdf","type"),$self->uri_shortform("flickr","tag")];
-    push @triples, [$FLICKR_URL_TAGS.$clean,$self->uri_shortform("skos","prefLabel"),$clean];
-
     return (wantarray) ? @triples : \@triples;
 }
 
@@ -1320,11 +1284,11 @@ sub serialize_triples {
 
 =head1 VERSION
 
-1.3
+1.4
 
 =head1 DATE
 
-$Date: 2005/10/07 04:07:05 $
+$Date: 2005/12/17 17:54:04 $
 
 =head1 AUTHOR
 
@@ -1416,10 +1380,6 @@ This is an example of an RDF dump for a photograph backed up from Flickr :
     <dcterms:isPartOf rdf:resource="http://www.flickr.com/tags/usa"/>
   </flickr:tag>
 
-  <flickr:tag rdf:about="http://www.flickr.com/photos/tags/usa">
-    <skos:prefLabel>usa</skos:prefLabel>
-  </flickr:tag>
-
   <dcterms:StillImage rdf:about="http://static.flickr.com/23/30763528_a981fab285_s.jpg">
     <dcterms:relation>Square</dcterms:relation>
     <exifi:height>75</exifi:height>
@@ -1432,10 +1392,6 @@ This is an example of an RDF dump for a photograph backed up from Flickr :
     <skos:prefLabel>california</skos:prefLabel>
     <dc:creator rdf:resource="http://www.flickr.com/people/35034348999@N01"/>
     <dcterms:isPartOf rdf:resource="http://www.flickr.com/tags/california"/>
-  </flickr:tag>
-
-  <flickr:tag rdf:about="http://www.flickr.com/photos/tags/california">
-    <skos:prefLabel>california</skos:prefLabel>
   </flickr:tag>
 
   <flickr:note rdf:about="http://www.flickr.com/photos/35034348999@N01/30763528#note-1142656">
@@ -1531,10 +1487,6 @@ This is an example of an RDF dump for a photograph backed up from Flickr :
     <dcterms:isPartOf rdf:resource="http://www.flickr.com/tags/sanfrancisco"/>
   </flickr:tag>
 
-  <flickr:tag rdf:about="http://www.flickr.com/photos/tags/sanfrancisco">
-    <skos:prefLabel>sanfrancisco</skos:prefLabel>
-  </flickr:tag>
-
   <flickr:user rdf:about="http://www.flickr.com/people/32373682187@N01">
     <foaf:mbox_sha1sum>62bf10c8d5b56623226689b7be924c64dee5e94a</foaf:mbox_sha1sum>
     <foaf:name>heather powazek champ</foaf:name>
@@ -1589,10 +1541,6 @@ This is an example of an RDF dump for a photograph backed up from Flickr :
     <skos:prefLabel>cameraphone</skos:prefLabel>
     <dc:creator rdf:resource="http://www.flickr.com/people/35034348999@N01"/>
     <dcterms:isPartOf rdf:resource="http://www.flickr.com/tags/cameraphone"/>
-  </flickr:tag>
-
-  <flickr:tag rdf:about="http://www.flickr.com/photos/tags/cameraphone">
-    <skos:prefLabel>cameraphone</skos:prefLabel>
   </flickr:tag>
 
   <flickr:user rdf:about="http://www.flickr.com/people/35034348999@N01">
@@ -1653,5 +1601,7 @@ This is free software. You may redistribute it and/or
 modify it under the same terms as Perl itself.
 
 =cut
+
+return 1;
 
 __END__

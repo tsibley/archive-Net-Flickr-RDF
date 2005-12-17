@@ -1,11 +1,21 @@
-# $Id: Changes,v 1.6 2005/10/07 04:07:05 asc Exp $
+# $Id: Changes,v 1.7 2005/12/17 17:54:04 asc Exp $
 
 Changes for the Net::Flickr::RDF Perl library
+
+1.4     Sat Dec 17 2005
+
+        - Require Net::Flickr::API 1.2.
+
+        - Fixed to return 1 like all good modules do.
+
+        - Fixed MANIFEST to, you know, point to the right files.
+
+        - Fixed t/00-load.t to, you know, load the right package.
 
 1.3	Thu Oct 06 2005
 
 	- FIXED serialization methods to use STDOUT if no file handle
-	  is defined...just like the docs say
+	- is defined...just like the docs say
 
 	- ADDED 'make_tag_triples'; 'make_photoset_triples';
           'make_group_triples'; 'make_grouppool_triples' object
@@ -18,20 +28,14 @@ Changes for the Net::Flickr::RDF Perl library
 	- ADDED 'build_photoset_uri'; 'build_group_uri';
           'build_grouppool_uri' package method
 
-	- ADDED 'prune_triples' package method
-
 	- ADDED caching for most 'collect_*_data' methods
-
-	- ADDED rdf:type SPO for global tag URLs
 
 	- CHANGED all pre-existing 'build_*_uri' methods to be package
           methods instead of object methods; this should not affect
           backwards compatibility
 
-	- UPDATED 'make_user_triples'; 'make_cc_triples' object methods to
+	- UPDATED make_user_triples; make_cc_triples object methods to
           return a list if (wantarray)
-
-	- UPDATED POD
 
 1.2	Wed Oct 05 2005
 
