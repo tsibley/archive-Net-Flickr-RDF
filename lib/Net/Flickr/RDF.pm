@@ -1,12 +1,12 @@
 use strict;
 
-# $Id: RDF.pm,v 1.37 2005/12/17 17:54:04 asc Exp $
+# $Id: RDF.pm,v 1.38 2005/12/18 04:32:20 asc Exp $
 # -*-perl-*-
 
 package Net::Flickr::RDF;
 use base qw (Net::Flickr::API);
 
-$Net::Flickr::RDF::VERSION = '1.4';
+$Net::Flickr::RDF::VERSION = '1.5';
 
 =head1 NAME
 
@@ -516,7 +516,7 @@ sub collect_photo_data {
     
     #
     
-    $data{desc}   = $img->find("descrption")->string_value();
+    $data{desc}   = $img->find("description")->string_value();
 
     #
 
@@ -1284,11 +1284,11 @@ sub serialize_triples {
 
 =head1 VERSION
 
-1.4
+1.5
 
 =head1 DATE
 
-$Date: 2005/12/17 17:54:04 $
+$Date: 2005/12/18 04:32:20 $
 
 =head1 AUTHOR
 
