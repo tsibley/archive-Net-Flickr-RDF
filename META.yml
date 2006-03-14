@@ -1,21 +1,8 @@
 --- #YAML:1.0
 name: Net-Flickr-RDF
-version: 1.5
+version: 1.6
 author:
   - Aaron Straup Cope E<lt>ascope@cpan.orgE<gt>
 abstract: a.k.a RDF::Describes::Flickr
 license: perl
-requires:
-  Date::Format: '>= 2.22'
-  Date::Parse: '>= 2.27'
-  Net::Flickr::API: '>= 1.2'
-  RDF::Simple: '>= 0.22'
-  Readonly: 0
-  perl: '>= 5.8.0'
-build_requires:
-  Test::Simple: '>= 0.47'
-provides:
-  Net::Flickr::RDF:
-    file: lib/Net/Flickr/RDF.pm
-    version: 1.5
-generated_by: Module::Build version 0.2604
+generated_by: Module::Build version 0.2611, without YAML.pm
