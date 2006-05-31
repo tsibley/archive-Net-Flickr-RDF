@@ -6,9 +6,23 @@
 @prefix asc:     <http://aaronland.info/ns/changefile/> .
                                      
 <>
-        dc:identifier           "$Id: Changes,v 1.13 2006/03/10 08:55:19 asc Exp $" ;
+        dc:identifier           "$Id: Changes,v 1.15 2006/05/31 01:02:06 asc Exp $" ;
         dc:description          "Changes for Net::Flickr::RDF.pm" ;
         dcterms:references      <http://aaronland.info/perl/net/flickr/rdf/> .
+
+<http://aaronland.info/perl/net/delicious/Net-Flickr-RDF-1.7.tar.gz>
+        dcterms:isVersionOf <http://aaronland.info/perl/flickr/rdf/> ;
+        dcterms:replaces    <http://aaronland.info/perl/net/flickr/rdf/Net-Flickr-RDF-1.6.tar.gz>; 
+
+        doap:Version    [
+                        doap:revision     "1.7" ;
+                        doap:created      "2006-05-30" ;
+                        ];
+        asc:changes     [
+                        asc:bugfix        "Ensure that dateTimeOriginal/Digitized EXIF properties are W3CDTF, per RT report 18748" ;
+                        asc:update        "Moved the bulk of the EXIF data from the description of the photo page to an '...#exif' description (and added rdfs:seeAlso pointers where necessary), per RT report 18749." ;
+                        asc:update        "Updated POD" ;
+                        ] .
 
 <http://aaronland.info/perl/net/delicious/Net-Flickr-RDF-1.6.tar.gz>
         dcterms:isVersionOf <http://aaronland.info/perl/flickr/rdf/> ;
