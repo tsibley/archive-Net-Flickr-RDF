@@ -6,9 +6,22 @@
 @prefix asc:     <http://aaronland.info/ns/changefile/> .
                                      
 <>
-        dc:identifier           "$Id: Changes,v 1.15 2006/05/31 01:02:06 asc Exp $" ;
+        dc:identifier           "$Id: Changes,v 1.18 2006/06/23 14:39:33 asc Exp $" ;
         dc:description          "Changes for Net::Flickr::RDF.pm" ;
         dcterms:references      <http://aaronland.info/perl/net/flickr/rdf/> .
+
+<http://aaronland.info/perl/net/delicious/Net-Flickr-RDF-1.8.tar.gz>
+        dcterms:isVersionOf <http://aaronland.info/perl/flickr/rdf/> ;
+        dcterms:replaces    <http://aaronland.info/perl/net/flickr/rdf/Net-Flickr-RDF-1.7.tar.gz>; 
+
+        doap:Version    [
+                        doap:revision     "1.8" ;
+                        doap:created      "2006-06-23" ;
+                        ];
+        asc:changes     [
+                        asc:update        "Call binmode as an object method, if possible; This is an IO::Scalar-ism to support storing RDF inline in Net::Flickr::Backup 2.7" ;
+                        asc:update        "Updated POD" ;
+                        ] .
 
 <http://aaronland.info/perl/net/delicious/Net-Flickr-RDF-1.7.tar.gz>
         dcterms:isVersionOf <http://aaronland.info/perl/flickr/rdf/> ;

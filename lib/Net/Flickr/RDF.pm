@@ -1,12 +1,12 @@
 use strict;
 
-# $Id: RDF.pm,v 1.55 2006/05/31 01:02:06 asc Exp $
+# $Id: RDF.pm,v 1.57 2006/06/22 14:49:48 asc Exp $
 # -*-perl-*-
 
 package Net::Flickr::RDF;
 use base qw (Net::Flickr::API);
 
-$Net::Flickr::RDF::VERSION = '1.7';
+$Net::Flickr::RDF::VERSION = '1.8';
 
 =head1 NAME
 
@@ -383,7 +383,7 @@ sub build_photoset_uri {
         my $pkg      = shift;
         my $set_data = shift;
         
-        return sprintf("%s%s/sets/%s", $FLICKR_URL_PHOTOS,$set_data->{user_id},$set_data->{id});
+        return sprintf("%s%s/sets/%s", $FLICKR_URL_PHOTOS, $set_data->{user_id}, $set_data->{id});
 }
 
 =head2 __PACKAGE__->prune_triples(\@triples)
@@ -402,7 +402,7 @@ sub prune_triples {
         
         foreach my $spo (@$triples) {
                 
-                my $key = md5_hex(join("",@$spo));
+                my $key = md5_hex(join("", @$spo));
                 
                 if (exists($seen{$key})) {
                         next;
@@ -451,7 +451,7 @@ sub describe_photo {
         
         my $fh = ($args->{fh}) ? $args->{fh} : \*STDOUT;
         
-        my $data = $self->collect_photo_data($args->{photo_id},$args->{secret});
+        my $data = $self->collect_photo_data($args->{photo_id}, $args->{secret});
         
         if (! $data) {
                 return 0;
@@ -1499,10 +1499,22 @@ sub serialise_triples {
                 $fh = \*STDOUT;
         }
         
-        binmode $fh, ':utf8';
-        
         #
-        
+        # IO::Scalar-ism
+        #
+
+        if ($fh->isa("IO::Scalar")) {
+                $fh->binmode(":utf8");
+        }
+
+        else {
+                binmode $fh, ":utf8";
+        }
+
+        #
+        #
+        #
+
         my $ser = RDF::Simple::Serialiser->new();
         
         my %ns = $self->namespaces();
@@ -1528,11 +1540,11 @@ sub serialize_triples {
 
 =head1 VERSION
 
-1.7
+1.8
 
 =head1 DATE
 
-$Date: 2006/05/31 01:02:06 $
+$Date: 2006/06/22 14:49:48 $
 
 =head1 AUTHOR
 
