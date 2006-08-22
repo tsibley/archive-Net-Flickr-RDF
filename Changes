@@ -6,9 +6,21 @@
 @prefix asc:     <http://aaronland.info/ns/changefile/> .
                                      
 <>
-        dc:identifier           "$Id: Changes,v 1.18 2006/06/23 14:39:33 asc Exp $" ;
+        dc:identifier           "$Id: Changes,v 1.19 2006/08/18 03:12:32 asc Exp $" ;
         dc:description          "Changes for Net::Flickr::RDF.pm" ;
         dcterms:references      <http://aaronland.info/perl/net/flickr/rdf/> .
+
+<http://aaronland.info/perl/net/delicious/Net-Flickr-RDF-1.8.tar.gz>
+        dcterms:isVersionOf <http://aaronland.info/perl/flickr/rdf/> ;
+        dcterms:replaces    <http://aaronland.info/perl/net/flickr/rdf/Net-Flickr-RDF-1.7.tar.gz>; 
+
+        doap:Version    [
+                        doap:revision     "1.9" ;
+                        doap:created      "2006-08-18" ;
+                        ];
+        asc:changes     [
+                        asc:update        "Require Net::Flickr::API 1.4";
+                        ] .
 
 <http://aaronland.info/perl/net/delicious/Net-Flickr-RDF-1.8.tar.gz>
         dcterms:isVersionOf <http://aaronland.info/perl/flickr/rdf/> ;

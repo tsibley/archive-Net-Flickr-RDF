@@ -1,6 +1,6 @@
 --- #YAML:1.0
 name: Net-Flickr-RDF
-version: 1.8
+version: 1.9
 author:
   - Aaron Straup Cope E<lt>ascope@cpan.orgE<gt>
 abstract: a.k.a RDF::Describes::Flickr
