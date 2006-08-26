@@ -248,10 +248,10 @@ OBJECT METHODS YOU MAY CARE ABOUT
     An alias for *serialise_triples*
 
 VERSION
-    1.9
+    1.91
 
 DATE
-    $Date: 2006/08/18 03:12:32 $
+    $Date: 2006/08/24 04:08:57 $
 
 AUTHOR
     Aaron Straup Cope <ascope@cpan.org>
