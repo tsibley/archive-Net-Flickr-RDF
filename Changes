@@ -6,9 +6,23 @@
 @prefix asc:     <http://aaronland.info/ns/changefile/> .
                                      
 <>
-        dc:identifier           "$Id: Changes,v 1.21 2006/08/24 04:10:31 asc Exp $" ;
+        dc:identifier           "$Id: Changes,v 1.23 2006/09/01 15:53:35 asc Exp $" ;
         dc:description          "Changes for Net::Flickr::RDF.pm" ;
         dcterms:references      <http://aaronland.info/perl/net/flickr/rdf/> .
+
+<http://aaronland.info/perl/net/delicious/Net-Flickr-RDF-1.92.tar.gz>
+        dcterms:isVersionOf <http://aaronland.info/perl/flickr/rdf/> ;
+        dcterms:replaces    <http://aaronland.info/perl/net/flickr/rdf/Net-Flickr-RDF-1.91.tar.gz>; 
+
+        doap:Version    [
+                        doap:revision     "1.92" ;
+                        doap:created      "2006-09-01" ;
+                        ];
+        asc:changes     [
+                        asc:addition      "Added support for geo data (and permission) in photos.getInfo";
+                        asc:update        "Require Net::Flickr::API 1.6" ;
+                        asc:update        "Geo data derived from tags is stored in a distinct geo:Point description - this change is NOT BACKWARDS COMPATIBLE" ;
+                        ] .
 
 <http://aaronland.info/perl/net/delicious/Net-Flickr-RDF-1.91.tar.gz>
         dcterms:isVersionOf <http://aaronland.info/perl/flickr/rdf/> ;

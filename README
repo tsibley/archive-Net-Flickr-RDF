@@ -53,6 +53,7 @@ PACKAGE METHODS YOU MAY CARE ABOUT
   __PACKAGE__->build_photo_uri(\%data)
     Returns a URL as a string.
 
+  __PACKAGE__->build_geo_uri(\%data)
   __PACKAGE__->build_user_tag_uri(\@data)
     Returns a URL as a string.
 
@@ -141,6 +142,7 @@ OBJECT METHODS YOU MAY CARE ABOUT
     Returns an array ref (or list in a wantarray context) of array refs of
     the meta data associated with a photoset (*%set_data*).
 
+  $obj->make_geo_triples(\%geo_data)
   $obj->make_group_triples(\%group_data)
     Returns an array ref (or list in a wantarray context) of array refs of
     the meta data associated with a group (*%group_data*).
@@ -207,6 +209,9 @@ OBJECT METHODS YOU MAY CARE ABOUT
     skos
         http://www.w3.org/2004/02/skos/core#
 
+    ymaps
+        urn:yahoo:maps
+
   $obj->namespace_prefix($uri)
     Return the namespace prefix for *$uri*
 
@@ -248,10 +253,10 @@ OBJECT METHODS YOU MAY CARE ABOUT
     An alias for *serialise_triples*
 
 VERSION
-    1.91
+    1.92
 
 DATE
-    $Date: 2006/08/24 04:08:57 $
+    $Date: 2006/09/01 15:42:23 $
 
 AUTHOR
     Aaron Straup Cope <ascope@cpan.org>

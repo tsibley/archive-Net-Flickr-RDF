@@ -1,12 +1,12 @@
 use strict;
 
-# $Id: RDF.pm,v 1.59 2006/08/24 04:08:57 asc Exp $
+# $Id: RDF.pm,v 1.60 2006/09/01 15:42:23 asc Exp $
 # -*-perl-*-
 
 package Net::Flickr::RDF;
 use base qw (Net::Flickr::API);
 
-$Net::Flickr::RDF::VERSION = '1.91';
+$Net::Flickr::RDF::VERSION = '1.92';
 
 =head1 NAME
 
@@ -91,6 +91,7 @@ Readonly::Hash my %DEFAULT_NS => (
 				  "rdf"     => "http://www.w3.org/1999/02/22-rdf-syntax-ns#",
 				  "rdfs"    => "http://www.w3.org/2000/01/rdf-schema#",
 				  "skos"    => "http://www.w3.org/2004/02/skos/core#",
+                                  "ymaps"   => "urn:yahoo:maps",
 				  );
 
 Readonly::Hash my %RDFMAP => (
@@ -300,7 +301,19 @@ sub build_photo_uri {
         my $self = shift;
         my $data = shift;
 
-        return sprintf("%s%s/%d",$FLICKR_URL_PHOTOS,$data->{user_id},$data->{photo_id});
+        return sprintf("%s%s/%d", $FLICKR_URL_PHOTOS, $data->{user_id}, $data->{photo_id});
+}
+
+=head2 __PACKAGE__->build_geo_uri(\%data)
+
+=cut
+
+sub build_geo_uri {
+        my $self = shift;
+        my $data = shift;
+
+        my $photo_url = $self->build_photo_uri($data);
+        return $photo_url . "#location";
 }
 
 =head2 __PACKAGE__->build_user_tag_uri(\@data)
@@ -561,7 +574,9 @@ sub collect_photo_data {
         $data{desc}   = $img->find("description")->string_value();
         
         #
-        
+        # Privacy
+        #
+
         my $vis = ($img->findnodes("visibility"))[0];
         
         if ($vis->getAttribute("ispublic")) {
@@ -585,7 +600,9 @@ sub collect_photo_data {
         }
         
         #
-        
+        # Tags
+        #
+
         foreach my $tag ($img->findnodes("tags/tag")) {
                 
                 my $id     = $tag->getAttribute("id");
@@ -600,7 +617,9 @@ sub collect_photo_data {
         }
         
         #
-        
+        # Notes
+        #
+
         foreach my $note ($img->findnodes("notes/note")) {
                 
                 $data{notes} ||= [];
@@ -614,11 +633,56 @@ sub collect_photo_data {
                 
                 $data{users}->{$note{author}} = $self->collect_user_data($note{author});
         }    	   
-        
+
         #
-        
-        my $ctx = $self->api_call({method=>"flickr.photos.getAllContexts",
-                                   args=>{photo_id=>$id}});
+        # Geo
+        #
+
+        my $loc = ($img->findnodes("location"))[0];
+
+        if ($loc){
+                my $perms = ($img->findnodes("geoperms"))[0];
+                my $vis   = "private";
+
+                if ($perms->getAttribute("ispublic") == 1) {
+                        $vis = "public";
+                }
+
+                elsif ($perms->getAttribute("iscontact") == 1) {
+                        $vis = "contact";
+                }
+
+                elsif (($perms->getAttribute("isfamily") == 1) && ($perms->getAttribute("isfriend") == 1)) {
+                        $vis = "family;friend";
+                }
+
+                elsif ($perms->getAttribute("isfriend") == 1) {
+                        $vis = "friend";
+                }
+
+
+                elsif ($perms->getAttribute("isfamily") == 1) {
+                        $vis = "family";
+                }
+                       
+                else {}
+
+                my %geo = (
+                           'lat' => $loc->getAttribute("latitude"),
+                           'long' => $loc->getAttribute("longitude"),
+                           'acc'  => $loc->getAttribute("accuracy"),
+                           'visibility' => $vis,
+                          );                
+
+                $data{geo} = \%geo;
+        }
+
+        #
+        # Context (groups, sets, etc.)
+        #
+
+        my $ctx = $self->api_call({method => "flickr.photos.getAllContexts",
+                                   args   => {photo_id=>$id}});
         
         if (! $ctx) {
                 $self->log()->warning("unable to retrieve context for photo $id");
@@ -642,13 +706,13 @@ sub collect_photo_data {
         }
         
         #
-        #
+        # Comments
         #
         
         $data{comments} = $self->collect_comment_data(\%data);
         
         #
-        #
+        # Happy Happy
         #
         
         return \%data;
@@ -935,18 +999,17 @@ sub make_photo_triples {
         # geo data
         #
         
-        if (($data->{lat}) && ($data->{long})) {
-                push @triples, [$photo,$self->uri_shortform("geo","lat"),$data->{lat}];
-                push @triples, [$photo,$self->uri_shortform("geo","long"),$data->{long}];
-                push @triples, [$photo,$self->uri_shortform("dc","coverage"),$data->{coverage}];
-        }
-        
-        else {
-                if (my $geodata = $self->geodata_from_tags($data)) {
-                        push @triples, [$photo, $self->uri_shortform("geo", "lat"), $geodata->{lat}];
-                        push @triples, [$photo, $self->uri_shortform("geo", "long"), $geodata->{long}];
-                }
+        if ((! exists($data->{geo})) && (my $geodata = $self->geodata_from_tags($data))) {
+                $data->{geo} = $geodata;
         }        
+
+        if (exists($data->{geo})) {
+
+                my $geo_url = $self->build_geo_uri($data);
+
+                $self->make_geo_triples($data);
+                push @triples, [$photo, $self->uri_shortform("geo","Point"), $geo_url];                
+        }
 
         #
         # licensing
@@ -1018,6 +1081,14 @@ sub make_photo_triples {
                 foreach my $uri (keys %{$data->{comments}}) {
                         push @triples, [$photo, $self->uri_shortform("a", "hasAnnotation"), $uri] 
                 }
+        }
+        
+        #
+        # geo/location
+        #
+
+        if (exists($data->{geo})){
+                push @triples, ($self->make_geo_triples($data));
         }
         
         #
@@ -1171,6 +1242,35 @@ sub make_photoset_triples {
         push @triples, [$set_uri, $self->uri_shortform("dc", "creator"), $creator_uri];
         push @triples, [$set_uri, $self->uri_shortform("rdf", "type"), $self->uri_shortform("flickr","photoset")];
         
+        return (wantarray) ? @triples : \@triples;
+}
+
+=head2 $obj->make_geo_triples(\%geo_data)
+
+=cut
+
+sub make_geo_triples {
+        my $self = shift;
+        my $data = shift;
+
+        my @triples = ();
+
+        my $point   = $self->uri_shortform("geo","Point");
+        my $geo_url = $self->build_geo_uri($data);
+
+        push @triples, [$geo_url, $self->uri_shortform("geo", "lat"), $data->{geo}->{lat}];
+        push @triples, [$geo_url, $self->uri_shortform("geo", "long"), $data->{geo}->{long}];
+
+        if (exists($data->{geo}->{acc})) {
+                push @triples, [$geo_url, $self->uri_shortform("ymaps", "accuracy"), $data->{geo}->{acc}];
+                push @triples, [$geo_url, $self->uri_shortform("acl", "accessor"), $data->{geo}->{visibility}];
+                push @triples, [$geo_url, $self->uri_shortform("acl", "access"), "visbility"];
+                push @triples, [$geo_url, $self->uri_shortform("rdf","type"), $point];
+        }
+         
+        # What the hell is this one for, again?
+        # push @triples, [$photo, $self->uri_shortform("dc","coverage"), $data->{coverage}];
+
         return (wantarray) ? @triples : \@triples;
 }
 
@@ -1388,6 +1488,10 @@ http://www.w3.org/2000/01/rdf-schema#
 
 http://www.w3.org/2004/02/skos/core#
 
+=item B<ymaps>
+
+urn:yahoo:maps
+
 =back
 
 =cut
@@ -1540,11 +1644,11 @@ sub serialize_triples {
 
 =head1 VERSION
 
-1.91
+1.92
 
 =head1 DATE
 
-$Date: 2006/08/24 04:08:57 $
+$Date: 2006/09/01 15:42:23 $
 
 =head1 AUTHOR
 
