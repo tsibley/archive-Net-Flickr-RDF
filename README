@@ -42,6 +42,35 @@ OPTIONS
 
         A valid Flickr Auth API token.
 
+  rdf
+    * query_geonames
+        Boolean.
+
+        If true and a photo has geodata (latitude, longitude) associated
+        with it, then the geonames.org database will be queried for a
+        corresponding match. Data will be added as properties of the photo's
+        geo:Point description. For example :
+
+         <geo:Point rdf:about="http://www.flickr.com/photos/35034348999@N01/272880469#location">
+            <geo:long>-122.025151</geo:long>
+            <flickr:accuracy>16</ymaps:flickr>
+            <acl:access>visbility</acl:access>
+            <geo:lat>37.417839</geo:lat>
+            <acl:accessor>public</acl:accessor>
+            <geoname:Feature rdf:resource="http://ws.geonames.org/rdf?geonameId=5409655"/>
+         </geo:Point>
+
+         <geoname:Feature rdf:about="http://ws.geonames.org/rdf?geonameId=5409655">
+            <geoname:featureCode>PPLX</geoname:featureCode>
+            <geoname:countryCode>US</geoname:countryCode>
+            <geoname:regionCode>CA</geoname:regionCode>
+            <geoname:region>California</geoname:region>
+            <geoname:city>Santa Clara</geoname:city>
+            <geoname:gtopo30>2</geoname:gtopo30>
+         </geoname:Feature>
+
+        Default is false.
+
 PACKAGE METHODS
   __PACKAGE__->new($cfg)
     Where $cfg is either a valid *Config::Simple* object or the path to a
@@ -199,6 +228,9 @@ OBJECT METHODS YOU MAY CARE ABOUT
 
     geo http://www.w3.org/2003/01/geo/wgs84_pos#
 
+    geoname
+        http://www.geonames.org/onto#
+
     i   http://www.w3.org/2004/02/image-regions#
 
     rdf http://www.w3.org/1999/02/22-rdf-syntax-ns#
@@ -253,10 +285,10 @@ OBJECT METHODS YOU MAY CARE ABOUT
     An alias for *serialise_triples*
 
 VERSION
-    1.92
+    1.94
 
 DATE
-    $Date: 2006/09/01 15:42:23 $
+    $Date: 2006/10/20 03:08:01 $
 
 AUTHOR
     Aaron Straup Cope <ascope@cpan.org>

@@ -1,12 +1,12 @@
 use strict;
 
-# $Id: RDF.pm,v 1.60 2006/09/01 15:42:23 asc Exp $
+# $Id: RDF.pm,v 1.66 2006/10/20 03:08:01 asc Exp $
 # -*-perl-*-
 
 package Net::Flickr::RDF;
 use base qw (Net::Flickr::API);
 
-$Net::Flickr::RDF::VERSION = '1.92';
+$Net::Flickr::RDF::VERSION = '1.94';
 
 =head1 NAME
 
@@ -64,6 +64,40 @@ A valid Flickr Auth API token.
 
 =back
 
+=head2 rdf
+
+=over 4
+
+=item * B<query_geonames>
+
+Boolean.
+
+If true and a photo has geodata (latitude, longitude) associated with it, then
+the geonames.org database will be queried for a corresponding match. Data will be 
+added as properties of the photo's geo:Point description. For example : 
+
+ <geo:Point rdf:about="http://www.flickr.com/photos/35034348999@N01/272880469#location">
+    <geo:long>-122.025151</geo:long>
+    <flickr:accuracy>16</ymaps:flickr>
+    <acl:access>visbility</acl:access>
+    <geo:lat>37.417839</geo:lat>
+    <acl:accessor>public</acl:accessor>
+    <geoname:Feature rdf:resource="http://ws.geonames.org/rdf?geonameId=5409655"/>
+ </geo:Point>
+
+ <geoname:Feature rdf:about="http://ws.geonames.org/rdf?geonameId=5409655">
+    <geoname:featureCode>PPLX</geoname:featureCode>
+    <geoname:countryCode>US</geoname:countryCode>
+    <geoname:regionCode>CA</geoname:regionCode>
+    <geoname:region>California</geoname:region>
+    <geoname:city>Santa Clara</geoname:city>
+    <geoname:gtopo30>2</geoname:gtopo30>
+ </geoname:Feature>
+
+Default is false.
+
+=back
+
 =cut
 
 use utf8;
@@ -87,6 +121,7 @@ Readonly::Hash my %DEFAULT_NS => (
 				  "flickr"  => "x-urn:flickr:",
 				  "foaf"    => "http://xmlns.com/foaf/0.1/",
 				  "geo"     => "http://www.w3.org/2003/01/geo/wgs84_pos#",
+                                  "geoname" => "http://www.geonames.org/onto#",
 				  "i"       => "http://www.w3.org/2004/02/image-regions#",
 				  "rdf"     => "http://www.w3.org/1999/02/22-rdf-syntax-ns#",
 				  "rdfs"    => "http://www.w3.org/2000/01/rdf-schema#",
@@ -264,6 +299,14 @@ Readonly::Hash my %CC_PERMITS => ("by-nc" => {"permits"   => ["Reproduction",
 							     "Attribution"]},
 				  );
 
+Readonly::Scalar my $GEONAMES_URL      => "http://www.geonames.org/";
+Readonly::Scalar my $GEONAMES_URL_WS   => "http://ws.geonames.org/";
+Readonly::Scalar my $GEONAMES_URL_RDF  => $GEONAMES_URL_WS . "rdf";
+Readonly::Scalar my $GEONAMES_URL_CO   => $GEONAMES_URL . "countries/";
+
+Readonly::Scalar my $GEONAMES_API_FINDNEARBY => $GEONAMES_URL_WS . "findNearbyPlaceName";
+Readonly::Scalar my $GEONAMES_API_GTOPO30    => $GEONAMES_URL_WS . "gtopo30";
+       
 Readonly::Scalar my $FLICKR_URL        => "http://www.flickr.com/";
 Readonly::Scalar my $FLICKR_URL_PHOTOS => $FLICKR_URL . "photos/";
 Readonly::Scalar my $FLICKR_URL_PEOPLE => $FLICKR_URL . "people/";
@@ -668,11 +711,15 @@ sub collect_photo_data {
                 else {}
 
                 my %geo = (
-                           'lat' => $loc->getAttribute("latitude"),
+                           'lat'  => $loc->getAttribute("latitude"),
                            'long' => $loc->getAttribute("longitude"),
                            'acc'  => $loc->getAttribute("accuracy"),
                            'visibility' => $vis,
                           );                
+
+                #
+                #
+                #
 
                 $data{geo} = \%geo;
         }
@@ -800,6 +847,9 @@ sub collect_user_data_by_screenname {
         my $user = $self->api_call({method => "flickr.people.findByUsername",
                                     args   => {username=> $name}});
 
+        if (! $user) {
+                return undef;
+        }
 
         my $user_id = $user->findvalue("/rsp/user/\@id");
 
@@ -1005,9 +1055,13 @@ sub make_photo_triples {
 
         if (exists($data->{geo})) {
 
-                my $geo_url = $self->build_geo_uri($data);
-
                 $self->make_geo_triples($data);
+
+                if ($self->{'cfg'}->param("rdf.query_geonames")) {
+                        push @triples, ($self->make_geonames_triples($data));
+                }
+                
+                my $geo_url = $self->build_geo_uri($data);
                 push @triples, [$photo, $self->uri_shortform("geo","Point"), $geo_url];                
         }
 
@@ -1262,7 +1316,7 @@ sub make_geo_triples {
         push @triples, [$geo_url, $self->uri_shortform("geo", "long"), $data->{geo}->{long}];
 
         if (exists($data->{geo}->{acc})) {
-                push @triples, [$geo_url, $self->uri_shortform("ymaps", "accuracy"), $data->{geo}->{acc}];
+                push @triples, [$geo_url, $self->uri_shortform("flickr", "accuracy"), $data->{geo}->{acc}];
                 push @triples, [$geo_url, $self->uri_shortform("acl", "accessor"), $data->{geo}->{visibility}];
                 push @triples, [$geo_url, $self->uri_shortform("acl", "access"), "visbility"];
                 push @triples, [$geo_url, $self->uri_shortform("rdf","type"), $point];
@@ -1270,6 +1324,82 @@ sub make_geo_triples {
          
         # What the hell is this one for, again?
         # push @triples, [$photo, $self->uri_shortform("dc","coverage"), $data->{coverage}];
+
+        return (wantarray) ? @triples : \@triples;
+}
+
+sub make_geonames_triples {
+        my $self = shift;
+        my $data = shift;
+
+        my @triples = ();
+        my $query   = sprintf("%s?style=FULL&lat=%s&lng=%s", $GEONAMES_API_FINDNEARBY, $data->{'geo'}->{'lat'}, $data->{'geo'}->{'long'});
+
+        $self->log()->debug($query);
+
+        my $res = undef;
+        my $xml = undef;
+
+        eval {
+                my $req = HTTP::Request->new(GET => $query);
+                $res = $self->{'api'}->request($req);
+
+                # print STDERR $res->content();
+        };
+
+        if ($@) {
+                $self->log()->error("Failed to ping geonames.org, $@");
+                return (wantarray) ? @triples : \@triples;                
+        }
+
+        if ($res->is_success()) {
+                $xml = $self->_parse_results_xml($res);
+        }
+
+        if ($xml) {
+
+                my $geo_url     = $self->build_geo_uri($data);
+                my $geoname_url = sprintf("%s?geonameId=%d", $GEONAMES_URL_RDF, $xml->findvalue("/geonames/geoname/geonameId"));
+                
+                #
+                # basic reverse geocoding
+                #
+
+                push @triples, [$geo_url, $self->uri_shortform("geoname", "Feature"),         $geoname_url];
+                push @triples, [$geoname_url, $self->uri_shortform("geoname", "city"),        $xml->findvalue("normalize-space(/geonames/geoname/adminName2)")];
+                push @triples, [$geoname_url, $self->uri_shortform("geoname", "region"),      $xml->findvalue("normalize-space(/geonames/geoname/adminName1)")];
+                push @triples, [$geoname_url, $self->uri_shortform("geoname", "regionCode"),  $xml->findvalue("normalize-space(/geonames/geoname/adminCode1)")];
+                push @triples, [$geoname_url, $self->uri_shortform("geoname", "countryCode"), $xml->findvalue("normalize-space(/geonames/geoname/countryCode)")];
+                push @triples, [$geoname_url, $self->uri_shortform("geoname", "featureCode"), $xml->findvalue("normalize-space(/geonames/geoname/fcode)")];
+                push @triples, [$geoname_url, $self->uri_shortform("rdf", "type"),            $self->uri_shortform("geoname", "Feature")];
+
+                #
+                # gtopo30
+                #
+                
+                my $query = sprintf("%s?lat=%s&lng=%s", $GEONAMES_API_GTOPO30, $data->{'geo'}->{'lat'}, $data->{'geo'}->{'long'});
+                $self->log()->debug($query);
+                
+                my $req = HTTP::Request->new(GET => $query);
+                my $res = $self->{'api'}->request($req);
+                
+                if ($res->is_success()) {
+                        $res->content() =~ /(\d+)/m;
+                        my $topo = $1;
+                        
+                        if (($topo) && ($topo != -9999)) {
+                                push @triples, [$geoname_url, $self->uri_shortform("geoname", "gtopo30"), $topo];
+                        }
+                }
+
+                #
+                #
+                #
+        }
+
+        #
+        # happy happy
+        #
 
         return (wantarray) ? @triples : \@triples;
 }
@@ -1416,7 +1546,6 @@ sub geodata_from_tags {
                 }
         }
 
-
         return undef;
 }        
 
@@ -1471,6 +1600,10 @@ http://xmlns.com/foaf/0.1/#
 =item B<geo> 
 
 http://www.w3.org/2003/01/geo/wgs84_pos#
+
+=item B<geoname> 
+
+http://www.geonames.org/onto#
 
 =item B<i>
 
@@ -1644,11 +1777,11 @@ sub serialize_triples {
 
 =head1 VERSION
 
-1.92
+1.94
 
 =head1 DATE
 
-$Date: 2006/09/01 15:42:23 $
+$Date: 2006/10/20 03:08:01 $
 
 =head1 AUTHOR
 
