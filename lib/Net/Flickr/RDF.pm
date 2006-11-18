@@ -1,12 +1,12 @@
 use strict;
 
-# $Id: RDF.pm,v 1.66 2006/10/20 03:08:01 asc Exp $
-# -*-perl-*-
+# $Id: RDF.pm,v 1.73 2006/11/18 16:25:26 asc Exp $
+# -*-perl-*- 
 
 package Net::Flickr::RDF;
 use base qw (Net::Flickr::API);
 
-$Net::Flickr::RDF::VERSION = '1.94';
+$Net::Flickr::RDF::VERSION = '1.95';
 
 =head1 NAME
 
@@ -96,6 +96,25 @@ added as properties of the photo's geo:Point description. For example :
 
 Default is false.
 
+=item * <query_trynt_color_api>
+
+Boolean.
+
+If true, the trynt colour extraction web service will be queried with the URL
+for the "medium" sized photo. Each colour will be added as it's own description,
+referenced from the photo's principal description. For example :
+
+ <flickr:photo rdf:about="http://www.flickr.com/photos/35034348999@N01/299815039">
+   <trynt:hasColor rdf:resource="http://www.flickr.com/photos/35034348999@N01/299815039#c0c0c0"/>
+ </flickr:photo>
+
+ <trynt:color rdf:about="http://www.flickr.com/photos/35034348999@N01/299815039#c0c0c0">
+    <trynt:hexidecimal>c0c0c0</trynt:hexidecimal>
+    <trynt:count>654</trynt:count>
+ </trynt:color>
+
+Default is false.
+
 =back
 
 =cut
@@ -126,6 +145,7 @@ Readonly::Hash my %DEFAULT_NS => (
 				  "rdf"     => "http://www.w3.org/1999/02/22-rdf-syntax-ns#",
 				  "rdfs"    => "http://www.w3.org/2000/01/rdf-schema#",
 				  "skos"    => "http://www.w3.org/2004/02/skos/core#",
+                                  "trynt"   => "http://www.trynt.com#",
                                   "ymaps"   => "urn:yahoo:maps",
 				  );
 
@@ -299,6 +319,9 @@ Readonly::Hash my %CC_PERMITS => ("by-nc" => {"permits"   => ["Reproduction",
 							     "Attribution"]},
 				  );
 
+Readonly::Scalar my $TRYNT_URL => "http://www.trynt.com/";
+Readonly::Scalar my $TRYNT_API_COLOR_EXTRACT => $TRYNT_URL . "image-color-extract-api/v2";
+
 Readonly::Scalar my $GEONAMES_URL      => "http://www.geonames.org/";
 Readonly::Scalar my $GEONAMES_URL_WS   => "http://ws.geonames.org/";
 Readonly::Scalar my $GEONAMES_URL_RDF  => $GEONAMES_URL_WS . "rdf";
@@ -310,7 +333,7 @@ Readonly::Scalar my $GEONAMES_API_GTOPO30    => $GEONAMES_URL_WS . "gtopo30";
 Readonly::Scalar my $FLICKR_URL        => "http://www.flickr.com/";
 Readonly::Scalar my $FLICKR_URL_PHOTOS => $FLICKR_URL . "photos/";
 Readonly::Scalar my $FLICKR_URL_PEOPLE => $FLICKR_URL . "people/";
-Readonly::Scalar my $FLICKR_URL_TAGS   => $FLICKR_URL . "tags/";
+Readonly::Scalar my $FLICKR_URL_TAGS   => $FLICKR_URL . "photos/tags/";
 Readonly::Scalar my $FLICKR_URL_GROUPS => $FLICKR_URL . "groups/";
 
 Readonly::Scalar my $LICENSE_ALLRIGHTS => "All rights reserved.";
@@ -1066,6 +1089,14 @@ sub make_photo_triples {
         }
 
         #
+        # colour extraction
+        #
+
+        if ($self->{'cfg'}->param('rdf.query_trynt_color_api')) {
+                push @triples, ($self->make_colour_data_triples($data));
+        }
+
+        #
         # licensing
         #
         
@@ -1328,6 +1359,10 @@ sub make_geo_triples {
         return (wantarray) ? @triples : \@triples;
 }
 
+=head2 $obj->make_geonames_triples(\%geo_data)
+
+=cut
+
 sub make_geonames_triples {
         my $self = shift;
         my $data = shift;
@@ -1399,6 +1434,59 @@ sub make_geonames_triples {
 
         #
         # happy happy
+        #
+
+        return (wantarray) ? @triples : \@triples;
+}
+
+sub make_colour_data_triples() {
+        my $self = shift;
+        my $data = shift;
+
+        my @triples = ();
+
+        my $source = $data->{'files'}->{'Medium'}->{'uri'};
+        my $query  = $TRYNT_API_COLOR_EXTRACT ."?u=" . $source . "&c=&fo=xml&f=0";
+        
+        my $res   = undef;
+        my $xml   = undef;
+
+        eval {
+                my $req = HTTP::Request->new(GET => $query);
+                $res = $self->{'api'}->request($req);
+        };
+
+        if ($@) {
+                $self->log()->error("Failed to reach the TRYNT servers, $@");
+                return (wantarray) ? @triples : \@triples;                
+        }
+
+        if ($res->is_success()) {
+                $xml = $self->_parse_results_xml($res);
+        }
+
+        if (! $xml) {
+                $self->log()->error("Failed parse to TRYNT results, $@");
+                return (wantarray) ? @triples : \@triples;
+        }
+
+        #
+
+        my $photo_url = $self->build_photo_uri($data);
+
+        foreach my $node ($xml->findnodes("/trynt/image-color-extract/color/common/data")) {
+                my $hex        = $node->findvalue("color");
+                my $count      = $node->findvalue("count");
+
+                my $colour_url = "$photo_url#". $hex;
+
+                push @triples, [$colour_url, $self->uri_shortform("trynt", "hexidecimal"), $hex];
+                push @triples, [$colour_url, $self->uri_shortform("trynt", "count"),  $count];
+                push @triples, [$colour_url, $self->uri_shortform("rdf","type"),      $self->uri_shortform("trynt","color")];
+
+                push @triples, [$photo_url, $self->uri_shortform("trynt", "hasColor"), $colour_url];
+        }
+
         #
 
         return (wantarray) ? @triples : \@triples;
@@ -1621,6 +1709,10 @@ http://www.w3.org/2000/01/rdf-schema#
 
 http://www.w3.org/2004/02/skos/core#
 
+=item B<trynt>
+
+http://www.trynt.com#
+
 =item B<ymaps>
 
 urn:yahoo:maps
@@ -1777,11 +1869,11 @@ sub serialize_triples {
 
 =head1 VERSION
 
-1.94
+1.95
 
 =head1 DATE
 
-$Date: 2006/10/20 03:08:01 $
+$Date: 2006/11/18 16:25:26 $
 
 =head1 AUTHOR
 

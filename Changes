@@ -6,9 +6,22 @@
 @prefix asc:     <http://aaronland.info/ns/changefile/> .
                                      
 <>
-        dc:identifier           "$Id: Changes,v 1.28 2006/10/20 03:08:01 asc Exp $" ;
+        dc:identifier           "$Id: Changes,v 1.30 2006/11/18 16:17:10 asc Exp $" ;
         dc:description          "Changes for Net::Flickr::RDF.pm" ;
         dcterms:references      <http://aaronland.info/perl/net/flickr/rdf/> .
+
+<http://aaronland.info/perl/net/delicious/Net-Flickr-RDF-1.95.tar.gz>
+        dcterms:isVersionOf <http://aaronland.info/perl/flickr/rdf/> ;
+        dcterms:replaces    <http://aaronland.info/perl/net/flickr/rdf/Net-Flickr-RDF-1.95.tar.gz>; 
+
+        doap:Version    [
+                        doap:revision     "1.95" ;
+                        doap:created      "2006-11-18" ;
+                        ];
+        asc:changes     [
+                        asc:addition      "Added the option to query the Trynt web service to extract clour information" ;
+                        asc:bugfix        "BLARGH! Fixed global tags URI (was /tags/TAG; is /tags/photos/TAG)" ;
+                        ] .
 
 <http://aaronland.info/perl/net/delicious/Net-Flickr-RDF-1.94.tar.gz>
         dcterms:isVersionOf <http://aaronland.info/perl/flickr/rdf/> ;
