@@ -6,13 +6,25 @@
 @prefix asc:     <http://aaronland.info/ns/changefile/> .
                                      
 <>
-        dc:identifier           "$Id: Changes,v 1.30 2006/11/18 16:17:10 asc Exp $" ;
+        dc:identifier           "$Id: Changes,v 1.31 2006/11/18 17:20:29 asc Exp $" ;
         dc:description          "Changes for Net::Flickr::RDF.pm" ;
         dcterms:references      <http://aaronland.info/perl/net/flickr/rdf/> .
 
+        dcterms:isVersionOf <http://aaronland.info/perl/flickr/rdf/> ;
+        dcterms:replaces    <http://aaronland.info/perl/net/flickr/rdf/Net-Flickr-RDF-1.96.tar.gz>; 
+
+        doap:Version    [
+                        doap:revision     "1.96" ;
+                        doap:created      "2006-11-19" ;
+                        ];
+        asc:changes     [
+                        asc:update        "Replaced all calls to $xml->findvalue() with $xml->find()->string_value() to account for XML::XPath::Literal string overloading" ;
+                        asc:update        "Updated to N:F:A 1.63" ;
+                        ] .
+
 <http://aaronland.info/perl/net/delicious/Net-Flickr-RDF-1.95.tar.gz>
         dcterms:isVersionOf <http://aaronland.info/perl/flickr/rdf/> ;
-        dcterms:replaces    <http://aaronland.info/perl/net/flickr/rdf/Net-Flickr-RDF-1.95.tar.gz>; 
+        dcterms:replaces    <http://aaronland.info/perl/net/flickr/rdf/Net-Flickr-RDF-1.94.tar.gz>; 
 
         doap:Version    [
                         doap:revision     "1.95" ;
