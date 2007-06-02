@@ -1,4 +1,4 @@
-# $Id: Build.PL,v 1.12 2006/11/18 17:20:29 asc Exp $
+# $Id: Build.PL,v 1.13 2007/05/31 15:15:12 asc Exp $
 
 use strict;
 use Module::Build;
@@ -10,7 +10,7 @@ my $build = Module::Build->new(module_name => 'Net::Flickr::RDF',
 			       license           => 'perl',
 			       requires => {
                                             'perl'               => '>= 5.8.0',
-                                            'Net::Flickr::API'   => '>= 1.63',
+                                            'Net::Flickr::API'   => '>= 1.65',
                                             'RDF::Simple'        => '>= 0.22',
                                             'Date::Parse'        => '>= 2.27',
                                             'Date::Format'       => '>= 2.22',
