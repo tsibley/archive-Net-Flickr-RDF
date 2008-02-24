@@ -6,9 +6,22 @@
 @prefix asc:     <http://aaronland.info/ns/changefile/> .
 
 <>
-        dc:identifier           "$Id: Changes,v 1.39 2007/09/03 05:36:31 asc Exp $" ;
+        dc:identifier           "$Id: Changes,v 1.43 2008/02/24 18:38:07 asc Exp $" ;
         dc:description          "Changes for Net::Flickr::RDF.pm" ;
         dcterms:references      <http://aaronland.info/perl/net/flickr/rdf/> .
+
+<http://aaronland.info/perl/net/delicious/Net-Flickr-RDF-2.1.tar.gz>
+        dcterms:isVersionOf <http://aaronland.info/perl/flickr/rdf/> ;
+        dcterms:replaces    <http://aaronland.info/perl/net/flickr/rdf/Net-Flickr-RDF-2.01.tar.gz>; 
+
+        doap:Version    [
+                        doap:revision     "2.1" ;
+                        doap:created      "2008-02-24" ;
+                        ];
+        asc:changes     [
+                        asc:addition      "Capture Flickr Places information (old skool geo resources are linked via rdf:seeAlso)" ;
+                        asc:update        "Require Net::Flickr::API 1.68" ;
+                        ] . 
 
 <http://aaronland.info/perl/net/delicious/Net-Flickr-RDF-2.01.tar.gz>
         dcterms:isVersionOf <http://aaronland.info/perl/flickr/rdf/> ;
