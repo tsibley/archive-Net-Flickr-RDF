@@ -1,4 +1,4 @@
-# $Id: MANIFEST,v 1.2 2006/03/14 05:34:38 asc Exp $
+Build
 Build.PL
 Changes
 lib/Net/Flickr/RDF.pm
