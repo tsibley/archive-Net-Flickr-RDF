@@ -6,7 +6,7 @@ use strict;
 package Net::Flickr::RDF;
 use base qw (Net::Flickr::API);
 
-$Net::Flickr::RDF::VERSION = '2.12';
+$Net::Flickr::RDF::VERSION = '2.13';
 
 =head1 NAME
 

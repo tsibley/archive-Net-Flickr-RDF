@@ -9,7 +9,7 @@ my $build = Module::Build->new(module_name => 'Net::Flickr::RDF',
 			       dist_version_from => 'lib/Net/Flickr/RDF.pm',
 			       license           => 'perl',
 			       requires => {
-                                            'perl'               => '>= 5.8.0',
+                                            'perl'               => '5.8.0',
                                             'Net::Flickr::API'   => '>= 1.68',
                                             'RDF::Simple'        => '>= 0.22',
                                             'Date::Parse'        => '>= 2.27',
@@ -20,6 +20,6 @@ my $build = Module::Build->new(module_name => 'Net::Flickr::RDF',
 				   'Test::Simple' => '>= 0.47',
 			       },
 			       create_readme      => 1,
-			       create_makefile_pl => 'passthrough');
+			       create_makefile_pl => 'small');
 
 $build->create_build_script();
